@@ -1,0 +1,35 @@
+version: '3.9'
+
+services:
+  php:
+    image: php:8.2-apache
+    container_name: php_app
+    ports:
+      - "8080:80"
+    volumes:
+      - ./src:/var/www/html
+      - ./uploads:/var/www/html/uploads
+    depends_on:
+      - postgres
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+    command: >
+      bash -c "docker-php-ext-install pdo pdo_pgsql pgsql && apache2-foreground"
+
+  postgres:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: news_user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: news_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./base:/docker-entrypoint-initdb.d
+
+
+volumes:
+  pgdata:
