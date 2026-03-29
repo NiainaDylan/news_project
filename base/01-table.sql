@@ -1,9 +1,3 @@
-CREATE DATABASE news_db
-    WITH ENCODING 'UTF8'
-    LC_COLLATE = 'fr_FR.UTF-8'
-    LC_CTYPE   = 'fr_FR.UTF-8';
-
-\c news_db;
 
 CREATE TABLE categorie_information (
     id_categorie SERIAL,
