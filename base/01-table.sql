@@ -1,10 +1,10 @@
-CREATE TABLE categorie_inforamtion(
+CREATE TABLE categorie_information(
    id_categorie COUNTER,
    valeur VARCHAR(50),
    PRIMARY KEY(id_categorie)
 );
 
-CREATE TABLE information(
+CREATE TABLE article(
    id COUNTER,
    id_source INT,
    id_categorie INT,
