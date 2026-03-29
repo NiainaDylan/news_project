@@ -40,7 +40,7 @@
 
         <div>
             <label for="article_content">Contenu</label>
-            <textarea id="article_content" name="content">Welcome to TinyMCE!</textarea>
+            <textarea id="article_content" name="content"></textarea>
         </div>
 
         <button type="submit">Enregistrer</button>

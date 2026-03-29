@@ -9,6 +9,7 @@ require_once __DIR__ . '/../models/AdminModel.php';
 require_once __DIR__ . '/../models/Categorie.php';
 require_once __DIR__ . '/../models/Source.php';
 require_once __DIR__ . '/../controllers/Auth.php';
+require_once __DIR__ . '/../controllers/Article.php';
 
 $action = $_GET['action'] ?? 'home';
 $public = ['login'];
@@ -26,5 +27,6 @@ match($action) {
         $sources    = Source::findAll();
         require __DIR__ . '/../app/views/bo/article_add.php';
     })(),
+    'article_add_save' => Article::saveAjax(),
     default     => redirect('/backoffice/?action=home'),
 };
