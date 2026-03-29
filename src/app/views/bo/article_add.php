@@ -15,6 +15,30 @@
 
     <form method="post" action="/backoffice/?action=article_add_save">
         <div>
+            <label for="id_categorie">Catégorie</label>
+            <select id="id_categorie" name="id_categorie" required>
+                <option value="">-- Choisir une catégorie --</option>
+                <?php foreach (($categories ?? []) as $cat): ?>
+                    <option value="<?= (int)$cat['id_categorie'] ?>">
+                        <?= e($cat['valeur']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <div>
+            <label for="id_source">Source</label>
+            <select id="id_source" name="id_source" required>
+                <option value="">-- Choisir une source --</option>
+                <?php foreach (($sources ?? []) as $src): ?>
+                    <option value="<?= (int)$src['id_source'] ?>">
+                        <?= e($src['valeur']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <div>
             <label for="article_content">Contenu</label>
             <textarea id="article_content" name="content">Welcome to TinyMCE!</textarea>
         </div>
