@@ -82,6 +82,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Remplacer le blob src par l'URL définitive
         img.setAttribute('src', data.location);
+        if (data.local_cache) {
+          img.setAttribute('data-local-cache', data.local_cache);
+        }
 
       } catch (err) {
         alert('Erreur upload image : ' + err.message);
@@ -96,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const allImages = [...editor.dom.select('img[src]')];
     const imagesMeta = allImages
       .map((img) => ({
-        local_cache: (img.getAttribute('src') || '').trim(),
+        local_cache: (img.getAttribute('data-local-cache') || img.getAttribute('src') || '').trim(),
         alt: (img.getAttribute('alt') || '').trim()
       }))
       .filter((img) => img.local_cache !== '');
