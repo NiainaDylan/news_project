@@ -12,7 +12,7 @@ services:
     environment:
       - APACHE_DOCUMENT_ROOT=/var/www/html
     command: >
-      bash -c "apt-get update && apt-get install -y --no-install-recommends libpq-dev && docker-php-ext-install pdo_pgsql pgsql && rm -rf /var/lib/apt/lists/* && apache2-foreground"
+      bash -c "apt-get update && apt-get install -y --no-install-recommends libpq-dev && docker-php-ext-install pdo_pgsql pgsql && a2enmod rewrite && rm -rf /var/lib/apt/lists/* && apache2-foreground"
 
   postgres:
     image: postgres:15
