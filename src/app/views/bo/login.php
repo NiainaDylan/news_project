@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Connexion — Backoffice</title>
-    <!-- <link rel="stylesheet" href="/backoffice/assets/css/bo.css"> -->
+    <link rel="stylesheet" href="/backoffice/assets/css/bo.css">
 </head>
 <body class="login-page">
     <div class="login-card">
@@ -26,7 +26,7 @@
                 <input type="password" id="password" name="password"
                        autocomplete="current-password" required>
             </div>
-            <button type="submit" class="btn btn-primary">Se connecter</button>
+            <button type="submit">Se connecter</button>
         </form>
     </div>
 </body>
