@@ -6,6 +6,8 @@ require_once __DIR__ . '/../app/inc/db.php';
 require_once __DIR__ . '/../app/inc/functions.php';
 
 require_once __DIR__ . '/../models/AdminModel.php';
+require_once __DIR__ . '/../models/Categorie.php';
+require_once __DIR__ . '/../models/Source.php';
 require_once __DIR__ . '/../controllers/Auth.php';
 
 $action = $_GET['action'] ?? 'home';
@@ -19,6 +21,10 @@ match($action) {
     'login'     => Auth::login(),
     'logout'    => Auth::logout(),
     'home'      => require __DIR__ . '/../app/views/bo/home.php',
-    'article_add' => require __DIR__ . '/../app/views/bo/article_add.php',
+    'article_add' => (function () {
+        $categories = Categorie::findAll();
+        $sources    = Source::findAll();
+        require __DIR__ . '/../app/views/bo/article_add.php';
+    })(),
     default     => redirect('/backoffice/?action=home'),
 };
