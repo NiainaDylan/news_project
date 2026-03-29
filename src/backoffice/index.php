@@ -19,5 +19,6 @@ match($action) {
     'login'     => Auth::login(),
     'logout'    => Auth::logout(),
     'home'      => require __DIR__ . '/../app/views/bo/home.php',
+    'article_add' => require __DIR__ . '/../app/views/bo/article_add.php',
     default     => redirect('/backoffice/?action=home'),
 };
