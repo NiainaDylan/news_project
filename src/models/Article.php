@@ -5,7 +5,7 @@ class Article
 {
     public static function findAll(): array
     {
-            $stmt = getPDO()->query("SELECT * FROM source ORDER BY valeur");
+            $stmt = getPDO()->query("SELECT * FROM article ORDER BY valeur");
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 }
