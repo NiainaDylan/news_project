@@ -3,6 +3,55 @@ declare(strict_types=1);
 
 class Article
 {
+    private const UPLOAD_WEB_PREFIX = '/uploads/articles/';
+    private const UPLOAD_ABS_DIR = '/var/www/html/uploads/articles';
+
+    private static function normalizeLocalCachePath(string $rawValue): string
+    {
+        $rawValue = trim($rawValue);
+        if ($rawValue === '') {
+            return '';
+        }
+
+        if (str_starts_with($rawValue, self::UPLOAD_ABS_DIR . '/')) {
+            return $rawValue;
+        }
+
+        $path = (string)(parse_url($rawValue, PHP_URL_PATH) ?? $rawValue);
+        $path = preg_replace('#^(?:\./|\.\./)+#', '/', $path) ?? $path;
+        $path = '/' . ltrim($path, '/');
+
+        $prefixPos = strpos($path, self::UPLOAD_WEB_PREFIX);
+        if ($prefixPos === false) {
+            return '';
+        }
+
+        $fileName = basename(substr($path, $prefixPos + strlen(self::UPLOAD_WEB_PREFIX)));
+        if ($fileName === '' || $fileName === '.' || $fileName === '..') {
+            return '';
+        }
+
+        return self::UPLOAD_ABS_DIR . '/' . $fileName;
+    }
+
+    public static function list(): void
+    {
+        $stmt = getPDO()->query(
+            'SELECT a.id,
+                    a.valeur,
+                    a.date_,
+                    s.valeur AS source,
+                    c.valeur AS categorie
+             FROM article a
+             LEFT JOIN source s ON s.id_source = a.id_source
+             LEFT JOIN categorie_information c ON c.id_categorie = a.id_categorie
+             ORDER BY a.date_ DESC, a.id DESC'
+        );
+
+        $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        require __DIR__ . '/../app/views/bo/article_list.php';
+    }
+
     public static function saveAjax(): void
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -75,7 +124,7 @@ class Article
                         continue;
                     }
 
-                    $localCache = trim((string)($image['local_cache'] ?? ''));
+                    $localCache = self::normalizeLocalCachePath((string)($image['local_cache'] ?? ''));
                     if ($localCache === '') {
                         continue;
                     }
@@ -226,7 +275,7 @@ class Article
             return;
         }
 
-        $uploadDir = '/var/www/html/uploads/articles';
+        $uploadDir = self::UPLOAD_ABS_DIR;
         if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Création dossier uploads impossible']);
@@ -244,7 +293,8 @@ class Article
 
         echo json_encode([
             'success'  => true,
-            'location' => '/uploads/articles/' . $fileName,
+            'location' => self::UPLOAD_WEB_PREFIX . $fileName,
+            'local_cache' => $absPath,
         ]);
     }
 }

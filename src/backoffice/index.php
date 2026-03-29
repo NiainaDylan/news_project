@@ -22,6 +22,7 @@ match($action) {
     'login'     => Auth::login(),
     'logout'    => Auth::logout(),
     'home'      => require __DIR__ . '/../app/views/bo/home.php',
+    'article_list' => Article::list(),
     'article_add' => (function () {
         $categories = Categorie::findAll();
         $sources    = Source::findAll();
