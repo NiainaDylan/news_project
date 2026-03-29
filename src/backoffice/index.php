@@ -17,6 +17,6 @@ if (!isset($_SESSION['admin']) && !in_array($action, $public)) {
 match($action) {
     'login'     => Auth::login(),
     'logout'    => Auth::logout(),
-    'home'      => require __DIR__ . '/../views/bo/home.php',
+    'home'      => require __DIR__ . '/../app/views/bo/home.php',
     default     => redirect('/backoffice/?action=home'),
 };

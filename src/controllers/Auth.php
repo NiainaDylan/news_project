@@ -23,7 +23,7 @@ class Auth
             $error = 'Identifiants incorrects.';
         }
 
-        require __DIR__ . '/../views/bo/login.php';
+        require __DIR__ . '/../app/views/bo/login.php';
     }
 
     public static function logout(): void
