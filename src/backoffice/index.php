@@ -28,5 +28,6 @@ match($action) {
         require __DIR__ . '/../app/views/bo/article_add.php';
     })(),
     'article_add_save' => Article::saveAjax(),
+    'article_image_upload' => Article::uploadImageAjax(),
     default     => redirect('/backoffice/?action=home'),
 };
