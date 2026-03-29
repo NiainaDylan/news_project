@@ -92,8 +92,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Sync le contenu final (avec les vraies URLs) dans le textarea
     editor.save();
 
-    // 3. Soumettre
+    // 3. Récupérer les métadonnées des images finales
+    const allImages = [...editor.dom.select('img[src]')];
+    const imagesMeta = allImages
+      .map((img) => ({
+        local_cache: (img.getAttribute('src') || '').trim(),
+        alt: (img.getAttribute('alt') || '').trim()
+      }))
+      .filter((img) => img.local_cache !== '');
+
+    // 4. Soumettre
     const formData = new FormData(form);
+    formData.append('images_meta', JSON.stringify(imagesMeta));
 
     try {
       const response = await fetch(form.action, {

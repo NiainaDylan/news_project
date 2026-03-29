@@ -43,6 +43,11 @@
             <textarea id="article_content" name="content"></textarea>
         </div>
 
+        <div>
+            <label for="date_cache">Expiration du cache image</label>
+            <input id="date_cache" name="date_cache" type="date">
+        </div>
+
         <button type="submit">Enregistrer</button>
     </form>
 </body>

@@ -25,6 +25,8 @@ class Article
         $idCategorie = (int)($_POST['id_categorie'] ?? 0);
         $idSource    = (int)($_POST['id_source']    ?? 0);
         $content     = trim($_POST['content']       ?? '');
+        $dateCache   = trim((string)($_POST['date_cache'] ?? ''));
+        $imagesRaw   = (string)($_POST['images_meta'] ?? '[]');
 
         if ($idCategorie <= 0 || $idSource <= 0 || $content === '') {
             http_response_code(422);
@@ -32,15 +34,73 @@ class Article
             return;
         }
 
-        $stmt = getPDO()->prepare(
-            'INSERT INTO article (id_source, id_categorie, valeur)
-             VALUES (:id_source, :id_categorie, :valeur)'
-        );
-        $stmt->execute([
-            ':id_source'    => $idSource,
-            ':id_categorie' => $idCategorie,
-            ':valeur'       => $content,
-        ]);
+        if ($dateCache !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateCache)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Date d\'expiration invalide']);
+            return;
+        }
+
+        $imagesMeta = json_decode($imagesRaw, true);
+        if (!is_array($imagesMeta)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Métadonnées images invalides']);
+            return;
+        }
+
+        $pdo = getPDO();
+
+        try {
+            $pdo->beginTransaction();
+
+            $stmt = $pdo->prepare(
+                'INSERT INTO article (id_source, id_categorie, valeur)
+                 VALUES (:id_source, :id_categorie, :valeur)'
+            );
+            $stmt->execute([
+                ':id_source'    => $idSource,
+                ':id_categorie' => $idCategorie,
+                ':valeur'       => $content,
+            ]);
+
+            $articleId = (int)$pdo->lastInsertId();
+
+            if (!empty($imagesMeta)) {
+                $imageStmt = $pdo->prepare(
+                    'INSERT INTO article_image (local_cache, alt, date_cache, id)
+                     VALUES (:local_cache, :alt, :date_cache, :id)'
+                );
+
+                foreach ($imagesMeta as $image) {
+                    if (!is_array($image)) {
+                        continue;
+                    }
+
+                    $localCache = trim((string)($image['local_cache'] ?? ''));
+                    if ($localCache === '') {
+                        continue;
+                    }
+
+                    $alt = trim((string)($image['alt'] ?? ''));
+
+                    $imageStmt->execute([
+                        ':local_cache' => $localCache,
+                        ':alt'         => $alt,
+                        ':date_cache'  => $dateCache !== '' ? $dateCache : null,
+                        ':id'          => $articleId,
+                    ]);
+                }
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de l\'enregistrement']);
+            return;
+        }
 
         echo json_encode(['success' => true, 'message' => 'Article enregistré']);
     }
