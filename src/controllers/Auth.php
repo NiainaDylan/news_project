@@ -12,7 +12,7 @@ class Auth
             $password = trim($_POST['password'] ?? '');
             $admin    = AdminModel::findByLogin($login);
 
-            if ($admin && password_verify($password, $admin['password'])) {
+            if ($admin && $password === $admin['password']) {
                 $_SESSION['admin'] = [
                     'id'    => $admin['id'],
                     'login' => $admin['login'],
