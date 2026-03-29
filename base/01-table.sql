@@ -1,22 +1,31 @@
-CREATE TABLE categorie_information(
-   id_categorie COUNTER,
-   valeur VARCHAR(50),
-   PRIMARY KEY(id_categorie)
+CREATE DATABASE news_db
+    WITH ENCODING 'UTF8'
+    LC_COLLATE = 'fr_FR.UTF-8'
+    LC_CTYPE   = 'fr_FR.UTF-8';
+
+\c news_db;
+
+CREATE TABLE categorie_information (
+    id_categorie SERIAL,
+    valeur       VARCHAR(50) NOT NULL,
+    PRIMARY KEY (id_categorie)
 );
 
-CREATE TABLE article(
-   id COUNTER,
-   id_source INT,
-   id_categorie INT,
-   valeur TEXT,
-   date_ DATETIME,
-   record_track SMALLINT,
-   statut LOGICAL,
-   PRIMARY KEY(id)
+CREATE TABLE source (
+    id_source SERIAL,
+    valeur    VARCHAR(50) NOT NULL,
+    PRIMARY KEY (id_source)
 );
 
-CREATE TABLE source(
-   id_source COUNTER,
-   valeur VARCHAR(50),
-   PRIMARY KEY(id_source)
+CREATE TABLE article (
+    id           SERIAL,
+    id_source    INT,
+    id_categorie INT,
+    valeur       TEXT,
+    date_        TIMESTAMP DEFAULT NOW(),
+    record_track SMALLINT  DEFAULT 0,
+    statut       BOOLEAN   DEFAULT TRUE,
+    PRIMARY KEY (id),
+    FOREIGN KEY (id_source)    REFERENCES source(id_source),
+    FOREIGN KEY (id_categorie) REFERENCES categorie_information(id_categorie)
 );
