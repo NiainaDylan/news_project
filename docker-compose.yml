@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   php:
     image: php:8.2-apache
@@ -14,7 +12,7 @@ services:
     environment:
       - APACHE_DOCUMENT_ROOT=/var/www/html
     command: >
-      bash -c "docker-php-ext-install pdo pdo_pgsql pgsql && apache2-foreground"
+      bash -c "apt-get update && apt-get install -y --no-install-recommends libpq-dev && docker-php-ext-install pdo_pgsql pgsql && rm -rf /var/lib/apt/lists/* && apache2-foreground"
 
   postgres:
     image: postgres:15
@@ -29,6 +27,10 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./base:/docker-entrypoint-initdb.d
+    networks:
+      default:
+        aliases:
+          - db
 
 
 volumes:
