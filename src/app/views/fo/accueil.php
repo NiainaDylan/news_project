@@ -1,42 +1,42 @@
 <?php
 $une = [
-    'categorie' => 'A la une',
-    'titre' => 'Sommet europeen: un plan energie de 10 milliards annonce',
-    'resume' => 'Les chefs d etat valident un dispositif commun pour stabiliser les prix et accelerer la transition.',
-    'auteur' => 'Par Lina Morel',
-    'horaire' => 'Il y a 1 h',
-    'image' => 'https://images.unsplash.com/photo-1593113598332-cd59a93b613c?auto=format&fit=crop&w=1200&q=80'
+    'categorie' => 'Dossier special Iran',
+    'titre' => 'Guerre en Iran: la pression internationale s intensifie apres une nouvelle nuit de frappes',
+    'resume' => 'Les discussions diplomatiques se poursuivent tandis que plusieurs capitales appellent a une desescalade immediate du conflit.',
+    'auteur' => 'Par Sarah Benali',
+    'horaire' => 'Mise a jour il y a 35 min',
+    'image' => 'https://images.unsplash.com/photo-1543007630-9710e4a00a20?auto=format&fit=crop&w=1200&q=80'
 ];
 
 $flashs = [
-    ['titre' => 'Metro: trafic retabli sur la ligne 8', 'horaire' => 'Il y a 20 min'],
-    ['titre' => 'Ligue 1: victoire surprise de Toulouse', 'horaire' => 'Il y a 35 min'],
-    ['titre' => 'IA generative: nouveau cadre europeen en discussion', 'horaire' => 'Il y a 50 min']
+    ['titre' => 'ONU: reunion d urgence du Conseil de securite convoquee', 'horaire' => 'Il y a 12 min'],
+    ['titre' => 'Teheran: communications perturbees dans plusieurs quartiers', 'horaire' => 'Il y a 26 min'],
+    ['titre' => 'Petrole: le Brent depasse un nouveau seuil hebdomadaire', 'horaire' => 'Il y a 41 min']
 ];
 
 $articles = [
     [
-        'rubrique' => 'Politique',
-        'titre' => 'Reforme territoriale: les maires demandent plus de moyens',
-        'resume' => 'Les elus locaux alertent sur la pression budgetaire et souhaitent un calendrier plus progressif.',
-        'image' => 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?auto=format&fit=crop&w=900&q=80'
+        'rubrique' => 'Diplomatie',
+        'titre' => 'Mediations regionales: trois pays proposent une feuille de route',
+        'resume' => 'Des negociateurs travaillent sur un mecanisme de cessez-le-feu progressif et de supervision internationale.',
+        'image' => 'https://images.unsplash.com/photo-1560439514-4e9645039924?auto=format&fit=crop&w=900&q=80'
     ],
     [
-        'rubrique' => 'Economie',
-        'titre' => 'PME: les commandes repartent dans l industrie',
-        'resume' => 'Le dernier barometre trimestriel affiche une hausse des carnets de commande de 6%. ',
-        'image' => 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=900&q=80'
+        'rubrique' => 'Humanitaire',
+        'titre' => 'Aide d urgence: des corridors humanitaires en discussion',
+        'resume' => 'Les ONG demandent un acces securise pour acheminer medicaments, eau et equipements de premiere necessite.',
+        'image' => 'https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?auto=format&fit=crop&w=900&q=80'
     ],
     [
-        'rubrique' => 'Tech',
-        'titre' => 'Cybersecurite: une campagne nationale de prevention lancee',
-        'resume' => 'Le gouvernement publie des recommandations simples pour limiter les fraudes numeriques.',
-        'image' => 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80'
+        'rubrique' => 'Energie',
+        'titre' => 'Gaz et petrole: les marches europeens sous tension',
+        'resume' => 'Les analystes anticipent une forte volatilite des prix tant que la situation securitaire restera instable.',
+        'image' => 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=900&q=80'
     ]
 ];
 
 $searchQuery = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
-$searchTitle = $searchQuery !== '' ? 'Resultats pour: ' . $searchQuery : 'Recherche d actualites';
+$searchTitle = $searchQuery !== '' ? 'Resultats sur la guerre en Iran: ' . $searchQuery : 'Guerre en Iran: suivi en direct';
 
 require_once __DIR__ . '/../../inc/header.php';
 ?>
@@ -64,7 +64,7 @@ require_once __DIR__ . '/../../inc/header.php';
 </section>
 
 <section>
-    <h2 class="section-title">Dernieres actualites</h2>
+    <h2 class="section-title">Dernieres evolutions du conflit</h2>
     <div class="grid">
         <?php foreach ($articles as $article): ?>
             <article class="card article">

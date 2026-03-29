@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ActuFlash - Site d actualite</title>
+    <title>ActuFlash - Dossier Guerre en Iran</title>
     <style>
         :root {
             --bg: #f4f6f8;
@@ -409,14 +409,14 @@
                 <a href="#tech">Tech</a>
             </nav>
             <form class="tools-bar" action="#" method="get">
-                <input type="search" name="q" placeholder="Rechercher une actualite, un journaliste, un sujet...">
+                <input type="search" name="q" placeholder="Rechercher: Iran, Téhéran, diplomatie, cessez-le-feu...">
                 <select name="theme">
                     <option value="">Filtre: Theme</option>
-                    <option value="politique">Politique</option>
-                    <option value="economie">Economie</option>
-                    <option value="sport">Sport</option>
-                    <option value="culture">Culture</option>
-                    <option value="tech">Tech</option>
+                    <option value="terrain">Situation sur le terrain</option>
+                    <option value="diplomatie">Diplomatie</option>
+                    <option value="humanitaire">Impact humanitaire</option>
+                    <option value="energie">Marches de l energie</option>
+                    <option value="analyse">Analyses et decryptage</option>
                 </select>
                 <select name="periode">
                     <option value="">Filtre: Periode</option>
