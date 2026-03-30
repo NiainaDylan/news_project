@@ -11,12 +11,13 @@ $themesForFilter = isset($availableThemes) && is_array($availableThemes) && !emp
         'Marches de l energie' => 'Marches de l energie',
         'Analyses et decryptage' => 'Analyses et decryptage'
     ];
+$themeNavLinks = array_slice($themesForFilter, 0, 4, true);
 ?><!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ActuFlash - Dossier Guerre en Iran</title>
+    <title>ActuFlash - Actualites</title>
     <style>
         :root {
             --bg: #f4f6f8;
@@ -27,6 +28,7 @@ $themesForFilter = isset($availableThemes) && is_array($availableThemes) && !emp
             --brand-dark: #a71d2a;
             --line: #dde2e8;
             --accent: #003049;
+            --page-bg: linear-gradient(180deg, #f7f9fb 0%, #eef2f6 100%);
         }
 
         * {
@@ -37,9 +39,21 @@ $themesForFilter = isset($availableThemes) && is_array($availableThemes) && !emp
 
         body {
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(180deg, #f7f9fb 0%, #eef2f6 100%);
+            background: var(--page-bg);
             color: var(--ink);
             line-height: 1.55;
+        }
+
+        body.dark-mode {
+            --bg: #0f1720;
+            --surface: #111a24;
+            --ink: #e6edf5;
+            --muted: #a7b2c0;
+            --brand: #ff5a5f;
+            --brand-dark: #ff878a;
+            --line: #2b3644;
+            --accent: #7ec8ff;
+            --page-bg: linear-gradient(180deg, #0b1118 0%, #121c28 100%);
         }
 
         a {
@@ -99,6 +113,53 @@ $themesForFilter = isset($availableThemes) && is_array($availableThemes) && !emp
             border: 1px solid var(--line);
             border-radius: 999px;
             background: #f8fafc;
+        }
+
+        .theme-toggle {
+            border: 1px solid var(--line);
+            background: var(--surface);
+            color: var(--ink);
+            border-radius: 999px;
+            width: 42px;
+            height: 42px;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: transform 0.15s ease, background-color 0.2s ease;
+        }
+
+        .theme-toggle:hover {
+            transform: translateY(-1px);
+        }
+
+        .theme-icon {
+            font-size: 1.15rem;
+            line-height: 1;
+            position: absolute;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .theme-icon--sun {
+            opacity: 0;
+            transform: scale(0.6);
+        }
+
+        .theme-icon--moon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        body.dark-mode .theme-icon--sun {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        body.dark-mode .theme-icon--moon {
+            opacity: 0;
+            transform: scale(0.6);
         }
 
         .avatar {
@@ -236,6 +297,8 @@ $themesForFilter = isset($availableThemes) && is_array($availableThemes) && !emp
             border-radius: 12px;
             object-fit: cover;
             margin-bottom: 12px;
+            display: block;
+            background: #e9edf2;
         }
 
         .tag {
@@ -249,7 +312,7 @@ $themesForFilter = isset($availableThemes) && is_array($availableThemes) && !emp
             margin-bottom: 10px;
         }
 
-        .hero-main h1 {
+        .hero-main h2 {
             font-size: clamp(1.5rem, 3vw, 2rem);
             line-height: 1.25;
             margin-bottom: 10px;
@@ -306,6 +369,8 @@ $themesForFilter = isset($availableThemes) && is_array($availableThemes) && !emp
             object-fit: cover;
             margin-bottom: 10px;
             border: 1px solid #e8edf2;
+            display: block;
+            background: #e9edf2;
         }
 
         .article p {
@@ -319,12 +384,54 @@ $themesForFilter = isset($availableThemes) && is_array($availableThemes) && !emp
             color: var(--brand-dark);
         }
 
+        .image-expired-badge {
+            display: inline-block;
+            margin: 8px 0 2px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #fff1cc;
+            color: #7a5300;
+            border: 1px solid #f2d28a;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
         .newsletter {
             margin-top: 24px;
             display: grid;
             gap: 10px;
             background: linear-gradient(140deg, #003049 0%, #1d4f6d 100%);
             color: #ffffff;
+        }
+
+        body.dark-mode .login-panel,
+        body.dark-mode .dropdown-menu,
+        body.dark-mode .tools-bar input,
+        body.dark-mode .tools-bar select,
+        body.dark-mode .card {
+            background: var(--surface);
+            color: var(--ink);
+            border-color: var(--line);
+        }
+
+        body.dark-mode .hero-main {
+            background: linear-gradient(125deg, #131f2b 0%, #1d2b3a 100%);
+        }
+
+        body.dark-mode .main-nav > a,
+        body.dark-mode .main-nav .dropdown-toggle,
+        body.dark-mode .header-meta,
+        body.dark-mode .meta,
+        body.dark-mode .article p {
+            color: var(--muted);
+        }
+
+        body.dark-mode .main-nav > a:hover,
+        body.dark-mode .main-nav > a.active,
+        body.dark-mode .main-nav .dropdown:hover .dropdown-toggle {
+            background: #243446;
+            color: #d9ecff;
         }
 
         .newsletter input {
@@ -396,31 +503,32 @@ $themesForFilter = isset($availableThemes) && is_array($availableThemes) && !emp
     <header class="site-header">
         <div class="container">
             <div class="header-top">
-                <a href="#" class="brand">Actu<span>Flash</span></a>
+                <a href="/accueil" class="brand">Actu<span>Flash</span></a>
                 <div class="header-right">
                     <div class="header-meta"><?php echo date('d/m/Y'); ?> | Edition France</div>
+                    <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Activer le mode sombre" title="Activer le mode sombre">
+                        <span class="theme-icon theme-icon--moon" aria-hidden="true">🌙</span>
+                        <span class="theme-icon theme-icon--sun" aria-hidden="true">☀</span>
+                    </button>
                     <div class="login-panel">
                         <span class="avatar">AF</span>
-                        <a class="login-btn" href="#">Se connecter</a>
+                        <a class="login-btn" href="/backoffice/?action=login">Se connecter</a>
                     </div>
                 </div>
             </div>
             <nav class="main-nav">
-                <a class="active" href="#">Accueil</a>
+                <a class="active" href="/accueil">Accueil</a>
                 <div class="dropdown">
                     <span class="dropdown-toggle">Rubriques</span>
                     <div class="dropdown-menu">
-                        <a href="#politique">Politique</a>
-                        <a href="#economie">Economie</a>
-                        <a href="#international">International</a>
-                        <a href="#societe">Societe</a>
+                        <?php foreach ($themeNavLinks as $themeValue => $themeLabel): ?>
+                            <a href="/accueil?theme=<?php echo rawurlencode((string) $themeValue); ?>"><?php echo htmlspecialchars((string) $themeLabel, ENT_QUOTES, 'UTF-8'); ?></a>
+                        <?php endforeach; ?>
                     </div>
                 </div>
-                <a href="#sport">Sport</a>
-                <a href="#culture">Culture</a>
-                <a href="#tech">Tech</a>
+                <a href="/backoffice/?action=article_list">Backoffice</a>
             </nav>
-            <form class="tools-bar" action="#" method="get">
+            <form class="tools-bar" action="/accueil" method="get">
                 <input type="search" name="q" value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Rechercher: Iran, Téhéran, diplomatie, cessez-le-feu...">
                 <select name="theme">
                     <option value="">Filtre: Theme</option>

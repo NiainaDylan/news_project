@@ -1,4 +1,83 @@
 <!DOCTYPE html>
+<?php
+if (!function_exists('bo_extract_image_src')) {
+    function bo_extract_image_src(string $html): string
+    {
+        $decoded = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $decoded, $m) === 1) {
+            return trim((string)$m[1]);
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('bo_extract_image_alt')) {
+    function bo_extract_image_alt(string $html): string
+    {
+        $decoded = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (preg_match('/<img[^>]+alt=["\']([^"\']*)["\']/i', $decoded, $m) === 1) {
+            return trim((string)$m[1]);
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('bo_normalize_image_src')) {
+    function bo_normalize_image_src(string $src): string
+    {
+        $src = html_entity_decode(trim($src), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if ($src === '') {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $src) === 1 || str_starts_with($src, 'data:image/')) {
+            return $src;
+        }
+
+        if (str_starts_with($src, './')) {
+            $src = substr($src, 1);
+        }
+
+        if (str_starts_with($src, '../')) {
+            return '/' . ltrim(preg_replace('#^(\.\./)+#', '', $src) ?? $src, '/');
+        }
+
+        if (str_starts_with($src, '/var/www/html/')) {
+            return '/' . ltrim(substr($src, strlen('/var/www/html/')), '/');
+        }
+
+        if (str_starts_with($src, '/')) {
+            return $src;
+        }
+
+        if (str_starts_with($src, 'uploads/')) {
+            return '/' . $src;
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('bo_excerpt')) {
+    function bo_excerpt(string $html, int $limit = 220): string
+    {
+        $plain = trim(preg_replace('/\s+/u', ' ', strip_tags(html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8'))) ?? '');
+        if ($plain === '') {
+            return 'Aucun contenu texte';
+        }
+
+        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+            return mb_strlen($plain, 'UTF-8') > $limit
+                ? mb_substr($plain, 0, $limit - 3, 'UTF-8') . '...'
+                : $plain;
+        }
+
+        return strlen($plain) > $limit ? substr($plain, 0, $limit - 3) . '...' : $plain;
+    }
+}
+?>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
@@ -88,6 +167,12 @@
             <?php else: ?>
                 <div class="articles-grid">
                     <?php foreach ($articles as $article): ?>
+                        <?php
+                        $rawContent = (string)($article['valeur'] ?? '');
+                        $thumbSrc = bo_normalize_image_src(bo_extract_image_src($rawContent));
+                        $thumbAlt = bo_extract_image_alt($rawContent);
+                        $excerpt = bo_excerpt($rawContent);
+                        ?>
                         <div class="article-card">
                             <div class="article-card__meta">
                                 <span class="article-card__id">#<?= (int)$article['id'] ?></span>
@@ -99,8 +184,14 @@
                                 <?php endif; ?>
                             </div>
 
+                            <?php if ($thumbSrc !== ''): ?>
+                                <div class="article-card__thumb-wrap">
+                                    <img class="article-card__thumb" src="<?= e($thumbSrc) ?>" alt="<?= e($thumbAlt !== '' ? $thumbAlt : 'Image article') ?>">
+                                </div>
+                            <?php endif; ?>
+
                             <div class="article-card__content">
-                                <?= (string)($article['valeur'] ?? '') ?>
+                                <?= e($excerpt) ?>
                             </div>
 
                             <?php if (!empty($article['source'])): ?>

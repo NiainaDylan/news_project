@@ -563,6 +563,21 @@ p { color: var(--text-muted); font-style: italic; }
     overflow: hidden;
 }
 
+  .article-card__thumb-wrap {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: #eef1f4;
+  }
+
+  .article-card__thumb {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+    display: block;
+  }
+
 .article-card__source {
     font-size: .82rem;
     color: var(--text-muted);

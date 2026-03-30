@@ -14,6 +14,73 @@
                     .replaceAll("'", '&#039;');
             }
 
+            function extractImageSrc(html) {
+                const content = String(html || '');
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = content;
+                const img = wrapper.querySelector('img');
+                if (!img) {
+                    return '';
+                }
+
+                const src = (img.getAttribute('src') || '').trim();
+                if (!src) {
+                    return '';
+                }
+
+                if (/^https?:\/\//i.test(src) || src.startsWith('data:image/')) {
+                    return src;
+                }
+
+                if (src.startsWith('/var/www/html/')) {
+                    return '/' + src.slice('/var/www/html/'.length).replace(/^\/+/, '');
+                }
+
+                if (src.startsWith('./')) {
+                    return src.slice(1);
+                }
+
+                if (src.startsWith('../')) {
+                    return '/' + src.replace(/^(\.\.\/)+/, '').replace(/^\/+/, '');
+                }
+
+                if (src.startsWith('/')) {
+                    return src;
+                }
+
+                if (src.startsWith('uploads/')) {
+                    return '/' + src;
+                }
+
+                return '';
+            }
+
+            function extractImageAlt(html) {
+                const content = String(html || '');
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = content;
+                const img = wrapper.querySelector('img');
+                if (!img) {
+                    return 'Image article';
+                }
+
+                const alt = (img.getAttribute('alt') || '').trim();
+                return alt || 'Image article';
+            }
+
+            function excerptText(html, limit = 220) {
+                const content = String(html || '');
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = content;
+                const text = (wrapper.textContent || wrapper.innerText || '').replace(/\s+/g, ' ').trim();
+
+                if (!text) {
+                    return 'Aucun contenu texte';
+                }
+
+                return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
+            }
+
             function renderArticles(articles) {
                 if (!Array.isArray(articles) || articles.length === 0) {
                     container.innerHTML = '<p>Aucun article trouvé.</p>';
@@ -25,7 +92,13 @@
                     const categorie = article.categorie ? `<span class="article-card__badge">${escapeHtml(article.categorie)}</span>` : '';
                     const date = article.date_ ? `<span class="article-card__date">${escapeHtml(article.date_)}</span>` : '';
                     const source = article.source ? `<div class="article-card__source">Source : ${escapeHtml(article.source)}</div>` : '';
-                    const content = article.valeur ? String(article.valeur) : '';
+                    const raw = article.valeur ? String(article.valeur) : '';
+                    const imageSrc = extractImageSrc(raw);
+                    const imageAlt = extractImageAlt(raw);
+                    const imageHtml = imageSrc
+                        ? `<div class="article-card__thumb-wrap"><img class="article-card__thumb" src="${escapeHtml(imageSrc)}" alt="${escapeHtml(imageAlt)}"></div>`
+                        : '';
+                    const content = excerptText(raw);
                     const editUrl = `/backoffice/?action=article_add&id=${id}`;
 
                     return `<div class="article-card">
@@ -34,7 +107,8 @@
                                     ${categorie}
                                     ${date}
                                 </div>
-                                <div class="article-card__content">${content}</div>
+                                ${imageHtml}
+                                <div class="article-card__content">${escapeHtml(content)}</div>
                                 ${source}
                                 <div><a class="btn btn-secondary" href="${editUrl}">Éditer</a></div>
                             </div>`;

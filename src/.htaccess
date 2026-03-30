@@ -1,0 +1,29 @@
+Options +FollowSymLinks
+RewriteEngine On
+RewriteBase /
+
+# Keep existing files/folders untouched
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^accueil/?$ app/views/fo/accueil.php [QSA,L]
+RewriteRule ^pages/article-([_a-z0-9]*)\.html$ app/views/fo/accueil.php?id=$1 [QSA,L]
+
+<IfModule mod_expires.c>
+	ExpiresActive On
+	ExpiresByType text/css "access plus 7 days"
+	ExpiresByType application/javascript "access plus 7 days"
+	ExpiresByType image/jpeg "access plus 30 days"
+	ExpiresByType image/png "access plus 30 days"
+	ExpiresByType image/gif "access plus 30 days"
+	ExpiresByType image/webp "access plus 30 days"
+	ExpiresByType image/svg+xml "access plus 30 days"
+</IfModule>
+
+<IfModule mod_headers.c>
+	Header always set X-Content-Type-Options "nosniff"
+	<FilesMatch "\.(jpg|jpeg|png|gif|webp|svg)$">
+		Header set Cache-Control "public, max-age=2592000, immutable"
+	</FilesMatch>
+</IfModule>

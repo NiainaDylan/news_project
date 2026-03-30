@@ -1,1 +1,2 @@
-docker exec -it news_db psql -U news_user -d news_db
+psql -U news_user -d news_db
+

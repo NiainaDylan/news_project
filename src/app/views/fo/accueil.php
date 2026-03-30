@@ -1,21 +1,20 @@
 <?php
-$searchQuery = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
-$selectedTheme = isset($_GET['theme']) ? trim((string) $_GET['theme']) : '';
-$selectedPeriod = isset($_GET['periode']) ? trim((string) $_GET['periode']) : '';
+declare(strict_types=1);
 
-$imageByCategory = [
-    'diplomatie' => 'https://images.unsplash.com/photo-1560439514-4e9645039924?auto=format&fit=crop&w=900&q=80',
-    'humanitaire' => 'https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?auto=format&fit=crop&w=900&q=80',
-    'energie' => 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=900&q=80',
-    'defense' => 'https://images.unsplash.com/photo-1543007630-9710e4a00a20?auto=format&fit=crop&w=1200&q=80',
-    'international' => 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=900&q=80',
-    'default' => 'https://images.unsplash.com/photo-1543007630-9710e4a00a20?auto=format&fit=crop&w=1200&q=80'
-];
+require_once __DIR__ . '/../../inc/db.php';
+require_once __DIR__ . '/../../inc/functions.php';
 
-if (!function_exists('truncate_text')) {
-    function truncate_text(string $text, int $limit): string
+$searchQuery = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
+$selectedTheme = isset($_GET['theme']) ? trim((string)$_GET['theme']) : '';
+$selectedPeriod = isset($_GET['periode']) ? trim((string)$_GET['periode']) : '';
+$selectedArticleId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+$fallbackImage = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500"><rect width="100%25" height="100%25" fill="%23e9edf2"/><text x="50%25" y="50%25" text-anchor="middle" fill="%23525a68" font-size="24" font-family="Arial">ActuFlash</text></svg>';
+
+if (!function_exists('foTruncate')) {
+    function foTruncate(string $text, int $limit): string
     {
-        $text = trim($text);
+        $text = trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
         if ($text === '') {
             return '';
         }
@@ -26,14 +25,12 @@ if (!function_exists('truncate_text')) {
                 : $text;
         }
 
-        return strlen($text) > $limit
-            ? substr($text, 0, $limit - 3) . '...'
-            : $text;
+        return strlen($text) > $limit ? substr($text, 0, $limit - 3) . '...' : $text;
     }
 }
 
-if (!function_exists('relative_time')) {
-    function relative_time(string $datetime): string
+if (!function_exists('foRelativeTime')) {
+    function foRelativeTime(string $datetime): string
     {
         $timestamp = strtotime($datetime);
         if ($timestamp === false) {
@@ -45,32 +42,156 @@ if (!function_exists('relative_time')) {
             return 'A l instant';
         }
         if ($delta < 3600) {
-            return 'Il y a ' . (int) floor($delta / 60) . ' min';
+            return 'Il y a ' . (int)floor($delta / 60) . ' min';
         }
         if ($delta < 86400) {
-            return 'Il y a ' . (int) floor($delta / 3600) . ' h';
+            return 'Il y a ' . (int)floor($delta / 3600) . ' h';
         }
 
-        return 'Il y a ' . (int) floor($delta / 86400) . ' j';
+        return 'Il y a ' . (int)floor($delta / 86400) . ' j';
     }
 }
 
-if (!function_exists('build_card')) {
-    function build_card(array $row, array $imageByCategory): array
+if (!function_exists('foTinyText')) {
+    function foTinyText(string $html): string
     {
-        $category = trim((string) ($row['categorie'] ?? 'International'));
-        $content = trim((string) ($row['valeur'] ?? ''));
-        $source = trim((string) ($row['source'] ?? 'Redaction'));
-        $categoryKey = strtolower($category);
-        $image = $imageByCategory[$categoryKey] ?? $imageByCategory['default'];
+        $withoutTags = strip_tags(html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        return trim(preg_replace('/\s+/u', ' ', $withoutTags) ?? $withoutTags);
+    }
+}
+
+if (!function_exists('foExtractTitle')) {
+    function foExtractTitle(string $html): string
+    {
+        if (preg_match('/<h[1-3][^>]*>(.*?)<\/h[1-3]>/is', $html, $matches) === 1) {
+            $candidate = foTinyText((string)$matches[1]);
+            if ($candidate !== '') {
+                return foTruncate($candidate, 120);
+            }
+        }
+
+        $text = foTinyText($html);
+        if ($text === '') {
+            return 'Article sans titre';
+        }
+
+        $sentence = preg_split('/(?<=[\.!?])\s+/u', $text, 2)[0] ?? $text;
+        return foTruncate($sentence, 120);
+    }
+}
+
+if (!function_exists('foExtractImageFromHtml')) {
+    function foExtractImageFromHtml(string $html): string
+    {
+        $decodedHtml = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        if (preg_match('/<img[^>]+src=["\']([^"\']+)["\']/i', $decodedHtml, $matches) === 1) {
+            return trim((string)$matches[1]);
+        }
+
+        if (preg_match('#((?:https?://|/|\.\./|\./)?[^\s"\'>]+\.(?:png|jpe?g|gif|webp|svg))(\?[^\s"\'>]*)?#i', $decodedHtml, $matches) === 1) {
+            return trim((string)$matches[0]);
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('foExtractLocalCacheFromHtml')) {
+    function foExtractLocalCacheFromHtml(string $html): string
+    {
+        $decodedHtml = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (preg_match('/<img[^>]+data-local-cache=["\']([^"\']+)["\']/i', $decodedHtml, $matches) === 1) {
+            return trim((string)$matches[1]);
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('foExtractImageAltFromHtml')) {
+    function foExtractImageAltFromHtml(string $html): string
+    {
+        if (preg_match('/<img[^>]+alt=["\']([^"\']*)["\']/i', $html, $matches) === 1) {
+            return trim((string)$matches[1]);
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('foNormalizeImageSrc')) {
+    function foNormalizeImageSrc(string $src, string $fallbackImage): string
+    {
+        $src = html_entity_decode(trim($src), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if ($src === '') {
+            return $fallbackImage;
+        }
+
+        if (preg_match('#^https?://#i', $src) === 1 || str_starts_with($src, 'data:image/')) {
+            return $src;
+        }
+
+        if (str_starts_with($src, './')) {
+            $src = substr($src, 1);
+        }
+
+        if (str_starts_with($src, '../')) {
+            $src = '/' . ltrim(preg_replace('#^(\.\./)+#', '', $src) ?? $src, '/');
+        }
+
+        if (str_starts_with($src, '/var/www/html/')) {
+            return '/' . ltrim(substr($src, strlen('/var/www/html/')), '/');
+        }
+
+        if (preg_match('#^[A-Za-z]:\\\\#', $src) === 1) {
+            $src = str_replace('\\\\', '/', $src);
+            $pos = stripos($src, '/uploads/');
+            if ($pos !== false) {
+                return substr($src, $pos);
+            }
+        }
+
+        if (str_starts_with($src, '/')) {
+            return $src;
+        }
+
+        if (str_starts_with($src, 'uploads/')) {
+            return '/' . $src;
+        }
+
+        return $fallbackImage;
+    }
+}
+
+if (!function_exists('foBuildCard')) {
+    function foBuildCard(array $row, string $fallbackImage): array
+    {
+        $contentHtml = (string)($row['valeur'] ?? '');
+        $plain = foTinyText($contentHtml);
+        $title = foExtractTitle($contentHtml);
+        $image = foNormalizeImageSrc(foExtractImageFromHtml($contentHtml), $fallbackImage);
+        if ($image === $fallbackImage) {
+            $image = foNormalizeImageSrc(foExtractLocalCacheFromHtml($contentHtml), $fallbackImage);
+        }
+        $dateCacheRaw = trim((string)($row['date_cache'] ?? ''));
+        $cacheExpiresAt = $dateCacheRaw !== '' ? strtotime($dateCacheRaw) : false;
+        $isExpired = $cacheExpiresAt !== false && $cacheExpiresAt < time();
+        if ($isExpired) {
+            $image = $fallbackImage;
+        }
+        $imageAlt = foExtractImageAltFromHtml($contentHtml);
 
         return [
-            'rubrique' => $category !== '' ? $category : 'International',
-            'titre' => truncate_text($content, 110),
-            'resume' => truncate_text($content, 190),
-            'auteur' => 'Par ' . ($source !== '' ? $source : 'Redaction'),
-            'horaire' => relative_time((string) ($row['date_'] ?? '')),
-            'image' => $image
+            'id' => (int)($row['id'] ?? 0),
+            'rubrique' => trim((string)($row['categorie'] ?? 'Sans categorie')),
+            'titre' => $title,
+            'resume' => foTruncate($plain, 200),
+            'auteur' => 'Par ' . trim((string)($row['source'] ?? 'Redaction')),
+            'horaire' => foRelativeTime((string)($row['date_'] ?? '')),
+            'image' => $image,
+            'image_alt' => $imageAlt !== '' ? $imageAlt : $title,
+            'is_image_expired' => $isExpired
         ];
     }
 }
@@ -79,19 +200,7 @@ $availableThemes = [];
 $rows = [];
 
 try {
-    $dsn = sprintf(
-        'pgsql:host=%s;port=%s;dbname=%s',
-        getenv('DB_HOST') ?: 'db',
-        getenv('DB_PORT') ?: '5432',
-        getenv('DB_NAME') ?: 'news_db'
-    );
-
-    $pdo = new PDO(
-        $dsn,
-        getenv('DB_USER') ?: 'news_user',
-        getenv('DB_PASSWORD') ?: 'password',
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
+    $pdo = getPDO();
 
     $where = ['a.statut = TRUE'];
     $params = [];
@@ -102,35 +211,43 @@ try {
     }
 
     if ($selectedTheme !== '') {
-        $where[] = 'c.valeur ILIKE :theme';
+        $where[] = 'c.valeur = :theme';
         $params[':theme'] = $selectedTheme;
     }
 
-    if ($selectedPeriod === 'today') {
-        $where[] = 'a.date_ >= NOW() - INTERVAL \'' . '1 day' . '\'';
-    } elseif ($selectedPeriod === 'week') {
-        $where[] = 'a.date_ >= NOW() - INTERVAL \'' . '7 days' . '\'';
-    } elseif ($selectedPeriod === 'month') {
-        $where[] = 'a.date_ >= NOW() - INTERVAL \'' . '30 days' . '\'';
+    if ($selectedArticleId > 0) {
+        $where[] = 'a.id = :id';
+        $params[':id'] = $selectedArticleId;
     }
 
-    $sql = 'SELECT a.id, a.valeur, a.date_, COALESCE(c.valeur, \'' . 'International' . '\') AS categorie, '
-        . 'COALESCE(s.valeur, \'' . 'Redaction' . '\') AS source '
-        . 'FROM article a '
-        . 'LEFT JOIN categorie_information c ON c.id_categorie = a.id_categorie '
-        . 'LEFT JOIN source s ON s.id_source = a.id_source '
-        . 'WHERE ' . implode(' AND ', $where) . ' '
-        . 'ORDER BY a.date_ DESC '
-        . 'LIMIT 20';
+    if ($selectedPeriod === 'today') {
+        $where[] = "a.date_ >= NOW() - INTERVAL '1 day'";
+    } elseif ($selectedPeriod === 'week') {
+        $where[] = "a.date_ >= NOW() - INTERVAL '7 days'";
+    } elseif ($selectedPeriod === 'month') {
+        $where[] = "a.date_ >= NOW() - INTERVAL '30 days'";
+    }
+
+    $sql = "SELECT a.id,
+                   a.valeur,
+                   a.date_,
+                   a.date_cache,
+                   COALESCE(c.valeur, 'Sans categorie') AS categorie,
+                                     COALESCE(s.valeur, 'Redaction') AS source
+            FROM article a
+            LEFT JOIN source s ON s.id_source = a.id_source
+            LEFT JOIN categorie_information c ON c.id_categorie = a.id_categorie
+            WHERE " . implode(' AND ', $where) . "
+            ORDER BY a.date_ DESC, a.id DESC
+            LIMIT 30";
 
     $statement = $pdo->prepare($sql);
     $statement->execute($params);
     $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
 
-    $themesStatement = $pdo->query('SELECT DISTINCT valeur FROM categorie_information WHERE TRIM(valeur) <> \'' . '\' ORDER BY valeur ASC');
-    $themeRows = $themesStatement->fetchAll(PDO::FETCH_COLUMN);
-    foreach ($themeRows as $themeLabel) {
-        $label = trim((string) $themeLabel);
+    $themesStatement = $pdo->query("SELECT DISTINCT valeur FROM categorie_information WHERE TRIM(valeur) <> '' ORDER BY valeur ASC");
+    foreach ($themesStatement->fetchAll(PDO::FETCH_COLUMN) as $themeLabel) {
+        $label = trim((string)$themeLabel);
         if ($label !== '') {
             $availableThemes[$label] = $label;
         }
@@ -139,88 +256,92 @@ try {
     $rows = [];
 }
 
-if (!empty($rows)) {
-    $une = build_card($rows[0], $imageByCategory);
-
-    $flashs = [];
-    foreach (array_slice($rows, 1, 3) as $row) {
-        $flashs[] = [
-            'titre' => truncate_text((string) ($row['valeur'] ?? ''), 90),
-            'horaire' => relative_time((string) ($row['date_'] ?? ''))
-        ];
-    }
-
-    $articles = [];
-    foreach (array_slice($rows, 4, 6) as $row) {
-        $articles[] = build_card($row, $imageByCategory);
-    }
-} else {
-    $une = [
-        'rubrique' => 'Dossier special Iran',
-        'titre' => 'Aucune donnee en base pour le moment',
-        'resume' => 'Ajoute des articles dans PostgreSQL pour alimenter automatiquement la une, les flashs et les cartes.',
-        'auteur' => 'Par Redaction',
-        'horaire' => 'Mise a jour en attente',
-        'image' => $imageByCategory['default']
-    ];
-
-    $flashs = [
-        ['titre' => 'Base de donnees vide: aucun flash a afficher', 'horaire' => 'En attente'],
-        ['titre' => 'Insere des lignes dans la table article', 'horaire' => 'En attente'],
-        ['titre' => 'Les filtres fonctionneront des que les donnees seront disponibles', 'horaire' => 'En attente']
-    ];
-
-    $articles = [
-        [
-            'rubrique' => 'Information',
-            'titre' => 'Charge les articles depuis PostgreSQL',
-            'resume' => 'Cette interface est deja connectee a Docker/PostgreSQL et attend simplement des donnees a afficher.',
-            'image' => $imageByCategory['default']
-        ]
-    ];
-}
+$cards = array_map(static fn(array $row): array => foBuildCard($row, $fallbackImage), $rows);
+$une = $cards[0] ?? null;
+$flashs = array_map(
+    static fn(array $card): array => ['titre' => $card['titre'], 'horaire' => $card['horaire']],
+    array_slice($cards, 1, 3)
+);
+$articles = array_slice($cards, 4, 9);
 
 $searchTitle = $searchQuery !== ''
-    ? 'Resultats sur la guerre en Iran: ' . $searchQuery
-    : 'Guerre en Iran: suivi en direct';
+    ? 'Resultats de recherche: ' . $searchQuery
+    : 'Actualites en direct';
+
+if ($selectedArticleId > 0 && $une !== null) {
+    $searchTitle = 'Lecture article #' . $selectedArticleId;
+}
+
+$lastModifiedTs = !empty($rows) && !empty($rows[0]['date_']) ? (strtotime((string)$rows[0]['date_']) ?: time()) : time();
+header('Cache-Control: public, max-age=60, stale-while-revalidate=120');
+header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $lastModifiedTs) . ' GMT');
+$ifModifiedSince = isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) ? strtotime((string)$_SERVER['HTTP_IF_MODIFIED_SINCE']) : false;
+if ($ifModifiedSince !== false && $ifModifiedSince >= $lastModifiedTs) {
+    http_response_code(304);
+    exit;
+}
 
 require_once __DIR__ . '/../../inc/header.php';
 ?>
 
 <h1 class="search-page-title"><?php echo htmlspecialchars($searchTitle, ENT_QUOTES, 'UTF-8'); ?></h1>
 
-<section class="hero">
-    <article class="card hero-main">
-        <img class="hero-media" src="<?php echo htmlspecialchars($une['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="Image de la une">
-        <span class="tag"><?php echo htmlspecialchars($une['rubrique'], ENT_QUOTES, 'UTF-8'); ?></span>
-        <h1><?php echo htmlspecialchars($une['titre'], ENT_QUOTES, 'UTF-8'); ?></h1>
-        <p><?php echo htmlspecialchars($une['resume'], ENT_QUOTES, 'UTF-8'); ?></p>
-        <div class="meta"><?php echo htmlspecialchars($une['auteur'], ENT_QUOTES, 'UTF-8'); ?> | <?php echo htmlspecialchars($une['horaire'], ENT_QUOTES, 'UTF-8'); ?></div>
-    </article>
+<?php if ($une !== null): ?>
+    <section class="hero">
+        <article class="card hero-main">
+            <img class="hero-media" src="<?php echo htmlspecialchars($une['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($une['image_alt'], ENT_QUOTES, 'UTF-8'); ?>">
+            <?php if (!empty($une['is_image_expired'])): ?>
+                <span class="image-expired-badge">Image expiree (date_cache depassee)</span>
+            <?php endif; ?>
+            <span class="tag"><?php echo htmlspecialchars($une['rubrique'], ENT_QUOTES, 'UTF-8'); ?></span>
+            <h2><?php echo htmlspecialchars($une['titre'], ENT_QUOTES, 'UTF-8'); ?></h2>
+            <p><?php echo htmlspecialchars($une['resume'], ENT_QUOTES, 'UTF-8'); ?></p>
+            <div class="meta"><?php echo htmlspecialchars($une['auteur'], ENT_QUOTES, 'UTF-8'); ?> | <?php echo htmlspecialchars($une['horaire'], ENT_QUOTES, 'UTF-8'); ?></div>
+        </article>
 
-    <aside class="card side-list">
-        <h2 class="section-title">Flash info</h2>
-        <?php foreach ($flashs as $flash): ?>
-            <article class="side-item">
-                <h3><?php echo htmlspecialchars($flash['titre'], ENT_QUOTES, 'UTF-8'); ?></h3>
-                <p class="meta"><?php echo htmlspecialchars($flash['horaire'], ENT_QUOTES, 'UTF-8'); ?></p>
-            </article>
-        <?php endforeach; ?>
-    </aside>
-</section>
+        <aside class="card side-list">
+            <h2 class="section-title">Flash info</h2>
+            <?php if (!empty($flashs)): ?>
+                <?php foreach ($flashs as $flash): ?>
+                    <article class="side-item">
+                        <h3><?php echo htmlspecialchars($flash['titre'], ENT_QUOTES, 'UTF-8'); ?></h3>
+                        <p class="meta"><?php echo htmlspecialchars($flash['horaire'], ENT_QUOTES, 'UTF-8'); ?></p>
+                    </article>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <p class="meta">Pas encore de flash info disponible.</p>
+            <?php endif; ?>
+        </aside>
+    </section>
+<?php else: ?>
+    <section class="card">
+        <h2 class="section-title">Aucun article publie</h2>
+        <p class="meta">Le frontoffice est pret et attend les contenus saisis depuis le backoffice.</p>
+    </section>
+<?php endif; ?>
 
 <section>
-    <h2 class="section-title">Dernieres evolutions du conflit</h2>
+    <h2 class="section-title">Derniers articles</h2>
     <div class="grid">
-        <?php foreach ($articles as $article): ?>
+        <?php if (!empty($articles)): ?>
+            <?php foreach ($articles as $article): ?>
+                <article class="card article">
+                    <img class="article-media" src="<?php echo htmlspecialchars($article['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($article['image_alt'], ENT_QUOTES, 'UTF-8'); ?>">
+                    <?php if (!empty($article['is_image_expired'])): ?>
+                        <span class="image-expired-badge">Image expiree (date_cache depassee)</span>
+                    <?php endif; ?>
+                    <span class="tag"><?php echo htmlspecialchars($article['rubrique'], ENT_QUOTES, 'UTF-8'); ?></span>
+                    <h3><?php echo htmlspecialchars($article['titre'], ENT_QUOTES, 'UTF-8'); ?></h3>
+                    <p><?php echo htmlspecialchars($article['resume'], ENT_QUOTES, 'UTF-8'); ?></p>
+                    <a href="/pages/article-<?php echo (int)$article['id']; ?>.html">Lire l article</a>
+                </article>
+            <?php endforeach; ?>
+        <?php else: ?>
             <article class="card article">
-                <img class="article-media" src="<?php echo htmlspecialchars($article['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="Image article <?php echo htmlspecialchars($article['rubrique'], ENT_QUOTES, 'UTF-8'); ?>">
-                <span class="tag"><?php echo htmlspecialchars($article['rubrique'], ENT_QUOTES, 'UTF-8'); ?></span>
-                <h3><?php echo htmlspecialchars($article['titre'], ENT_QUOTES, 'UTF-8'); ?></h3>
-                <p><?php echo htmlspecialchars($article['resume'], ENT_QUOTES, 'UTF-8'); ?></p>
-                <a href="#">Lire l article</a>
+                <h3>Aucun article correspondant aux filtres</h3>
+                <p>Essaie de modifier la recherche, le theme ou la periode.</p>
             </article>
-        <?php endforeach; ?>
+        <?php endif; ?>
     </div>
 </section>
 

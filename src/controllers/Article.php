@@ -69,6 +69,7 @@ class Article
                         id_source,
                         id_categorie,
                         valeur,
+                        date_cache,
                         statut
                  FROM article
                  WHERE id = :id'
@@ -109,8 +110,6 @@ class Article
         $content     = trim($_POST['content']       ?? '');
         $articleId   = (int)($_POST['article_id']   ?? 0);
         $dateCache   = trim((string)($_POST['date_cache'] ?? ''));
-        $imagesRaw   = (string)($_POST['images_meta'] ?? '[]');
-
         if ($idCategorie <= 0 || $idSource <= 0 || $content === '') {
             http_response_code(422);
             echo json_encode(['success' => false, 'message' => 'Champs invalides']);
@@ -123,12 +122,7 @@ class Article
             return;
         }
 
-        $imagesMeta = json_decode($imagesRaw, true);
-        if (!is_array($imagesMeta)) {
-            http_response_code(422);
-            echo json_encode(['success' => false, 'message' => 'Métadonnées images invalides']);
-            return;
-        }
+        $dateCacheValue = $dateCache !== '' ? ($dateCache . ' 23:59:59') : null;
 
         $pdo = getPDO();
         $isEdit = $articleId > 0;
@@ -141,57 +135,30 @@ class Article
                     'UPDATE article
                      SET id_source = :id_source,
                          id_categorie = :id_categorie,
-                         valeur = :valeur
+                         valeur = :valeur,
+                         date_cache = :date_cache
                      WHERE id = :id'
                 );
                 $stmt->execute([
                     ':id_source'    => $idSource,
                     ':id_categorie' => $idCategorie,
                     ':valeur'       => $content,
+                    ':date_cache'   => $dateCacheValue,
                     ':id'           => $articleId,
                 ]);
-
-                $deleteImagesStmt = $pdo->prepare('DELETE FROM article_image WHERE id = :id');
-                $deleteImagesStmt->execute([':id' => $articleId]);
             } else {
                 $stmt = $pdo->prepare(
-                    'INSERT INTO article (id_source, id_categorie, valeur)
-                     VALUES (:id_source, :id_categorie, :valeur)'
+                    'INSERT INTO article (id_source, id_categorie, valeur, date_cache)
+                     VALUES (:id_source, :id_categorie, :valeur, :date_cache)'
                 );
                 $stmt->execute([
                     ':id_source'    => $idSource,
                     ':id_categorie' => $idCategorie,
                     ':valeur'       => $content,
+                    ':date_cache'   => $dateCacheValue,
                 ]);
 
                 $articleId = (int)$pdo->lastInsertId();
-            }
-
-            if (!empty($imagesMeta)) {
-                $imageStmt = $pdo->prepare(
-                    'INSERT INTO article_image (local_cache, alt, date_cache, id)
-                     VALUES (:local_cache, :alt, :date_cache, :id)'
-                );
-
-                foreach ($imagesMeta as $image) {
-                    if (!is_array($image)) {
-                        continue;
-                    }
-
-                    $localCache = self::normalizeLocalCachePath((string)($image['local_cache'] ?? ''));
-                    if ($localCache === '') {
-                        continue;
-                    }
-
-                    $alt = trim((string)($image['alt'] ?? ''));
-
-                    $imageStmt->execute([
-                        ':local_cache' => $localCache,
-                        ':alt'         => $alt,
-                        ':date_cache'  => $dateCache !== '' ? $dateCache : null,
-                        ':id'          => $articleId,
-                    ]);
-                }
             }
 
             $pdo->commit();
