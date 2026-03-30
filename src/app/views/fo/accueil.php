@@ -490,6 +490,39 @@ if ($ifModifiedSince !== false && $ifModifiedSince >= $lastModifiedTs) {
     exit;
 }
 
+$isDetailPage = $selectedArticleId > 0 && $une !== null;
+$pageTitle = $isDetailPage
+    ? ((string)$une['titre'] . ' | ActuFlash')
+    : 'ActuFlash - Actualites';
+
+$metaDescription = $isDetailPage
+    ? ((string)($une['resume'] ?? 'Actualite detaillee sur ActuFlash.'))
+    : ($searchQuery !== ''
+        ? ('Resultats de recherche pour: ' . $searchQuery . ' sur ActuFlash.')
+        : 'Suivez les actualites en direct: economie, diplomatie, energie et geopolitique sur ActuFlash.');
+
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = isset($_SERVER['HTTP_HOST']) ? trim((string)$_SERVER['HTTP_HOST']) : '';
+$baseUrl = $host !== '' ? ($scheme . '://' . $host) : '';
+$canonicalPath = $isDetailPage
+    ? ('/pages/' . rawurlencode((string)$une['slug']) . '-' . (int)$une['id'] . '.html')
+    : '/accueil';
+$metaCanonical = $baseUrl !== '' ? ($baseUrl . $canonicalPath) : $canonicalPath;
+
+$metaOgType = $isDetailPage ? 'article' : 'website';
+$metaOgImageRaw = $isDetailPage ? (string)($une['image'] ?? '') : '';
+if ($metaOgImageRaw !== '' && !str_starts_with($metaOgImageRaw, 'data:image/')) {
+    if (preg_match('#^https?://#i', $metaOgImageRaw) === 1) {
+        $metaOgImage = $metaOgImageRaw;
+    } elseif (str_starts_with($metaOgImageRaw, '/')) {
+        $metaOgImage = $baseUrl !== '' ? ($baseUrl . $metaOgImageRaw) : $metaOgImageRaw;
+    } else {
+        $metaOgImage = $baseUrl !== '' ? ($baseUrl . '/' . ltrim($metaOgImageRaw, '/')) : ('/' . ltrim($metaOgImageRaw, '/'));
+    }
+} else {
+    $metaOgImage = '';
+}
+
 require_once __DIR__ . '/../../inc/header.php';
 ?>
 
