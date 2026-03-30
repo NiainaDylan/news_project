@@ -10,6 +10,8 @@ require_once __DIR__ . '/../models/Categorie.php';
 require_once __DIR__ . '/../models/Source.php';
 require_once __DIR__ . '/../controllers/Auth.php';
 require_once __DIR__ . '/../controllers/Article.php';
+require_once __DIR__ . '/../controllers/CategorieController.php';
+require_once __DIR__ . '/../controllers/SourceController.php';
 
 $action = $_GET['action'] ?? 'home';
 $public = ['login'];
@@ -27,5 +29,11 @@ match($action) {
     'article_add_save' => Article::saveAjax(),
     'article_image_upload' => Article::uploadImageAjax(),
     'article_filter' => Article::filterAjax(),
+    'categorie_list' => CategorieController::list(),
+    'categorie_add' => CategorieController::form(),
+    'categorie_add_save' => CategorieController::save(),
+    'source_list' => SourceController::list(),
+    'source_add' => SourceController::form(),
+    'source_add_save' => SourceController::save(),
     default     => redirect('/backoffice/?action=home'),
 };
