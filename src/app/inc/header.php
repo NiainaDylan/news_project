@@ -291,6 +291,11 @@ $themeNavLinks = array_slice($themesForFilter, 0, 4, true);
             background: linear-gradient(125deg, #ffffff 0%, #fff1f1 100%);
         }
 
+        .hero-main-link {
+            display: block;
+            color: inherit;
+        }
+
         .hero-media {
             width: 100%;
             height: 220px;

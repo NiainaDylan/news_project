@@ -8,6 +8,8 @@ RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
 RewriteRule ^accueil/?$ app/views/fo/accueil.php [QSA,L]
+RewriteRule ^public/?$ /accueil [R=302,L]
+RewriteRule ^pages/([_a-z0-9-]+)-([0-9]+)\.html$ app/views/fo/accueil.php?id=$2&slug=$1 [QSA,L]
 RewriteRule ^pages/article-([_a-z0-9]*)\.html$ app/views/fo/accueil.php?id=$1 [QSA,L]
 
 <IfModule mod_expires.c>

@@ -8,6 +8,7 @@ $searchQuery = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
 $selectedTheme = isset($_GET['theme']) ? trim((string)$_GET['theme']) : '';
 $selectedPeriod = isset($_GET['periode']) ? trim((string)$_GET['periode']) : '';
 $selectedArticleId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$requestedSlug = isset($_GET['slug']) ? trim((string)$_GET['slug']) : '';
 
 $fallbackImage = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500"><rect width="100%25" height="100%25" fill="%23e9edf2"/><text x="50%25" y="50%25" text-anchor="middle" fill="%23525a68" font-size="24" font-family="Arial">ActuFlash</text></svg>';
 
@@ -77,6 +78,25 @@ if (!function_exists('foExtractTitle')) {
 
         $sentence = preg_split('/(?<=[\.!?])\s+/u', $text, 2)[0] ?? $text;
         return foTruncate($sentence, 120);
+    }
+}
+
+if (!function_exists('foSlugify')) {
+    function foSlugify(string $value): string
+    {
+        $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (function_exists('iconv')) {
+            $converted = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+            if ($converted !== false) {
+                $value = $converted;
+            }
+        }
+
+        $value = strtolower($value);
+        $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
+        $value = trim($value, '-');
+
+        return $value !== '' ? $value : 'article';
     }
 }
 
@@ -184,6 +204,8 @@ if (!function_exists('foBuildCard')) {
 
         return [
             'id' => (int)($row['id'] ?? 0),
+            'slug' => foSlugify($title),
+            'url' => '/pages/' . rawurlencode(foSlugify($title)) . '-' . (int)($row['id'] ?? 0) . '.html',
             'rubrique' => trim((string)($row['categorie'] ?? 'Sans categorie')),
             'titre' => $title,
             'resume' => foTruncate($plain, 200),
@@ -269,8 +291,16 @@ $searchTitle = $searchQuery !== ''
     : 'Actualites en direct';
 
 if ($selectedArticleId > 0 && $une !== null) {
-    $searchTitle = 'Lecture article #' . $selectedArticleId;
+    $expectedSlug = (string)($une['slug'] ?? 'article');
+    if ($requestedSlug === '' || $requestedSlug !== $expectedSlug) {
+        header('Location: /pages/' . rawurlencode($expectedSlug) . '-' . (int)$une['id'] . '.html', true, 301);
+        exit;
+    }
+
+    $searchTitle = 'Lecture: ' . (string)$une['titre'];
 }
+
+
 
 $lastModifiedTs = !empty($rows) && !empty($rows[0]['date_']) ? (strtotime((string)$rows[0]['date_']) ?: time()) : time();
 header('Cache-Control: public, max-age=60, stale-while-revalidate=120');
@@ -289,14 +319,16 @@ require_once __DIR__ . '/../../inc/header.php';
 <?php if ($une !== null): ?>
     <section class="hero">
         <article class="card hero-main">
-            <img class="hero-media" src="<?php echo htmlspecialchars($une['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($une['image_alt'], ENT_QUOTES, 'UTF-8'); ?>">
-            <?php if (!empty($une['is_image_expired'])): ?>
-                <span class="image-expired-badge">Image expiree (date_cache depassee)</span>
-            <?php endif; ?>
-            <span class="tag"><?php echo htmlspecialchars($une['rubrique'], ENT_QUOTES, 'UTF-8'); ?></span>
-            <h2><?php echo htmlspecialchars($une['titre'], ENT_QUOTES, 'UTF-8'); ?></h2>
-            <p><?php echo htmlspecialchars($une['resume'], ENT_QUOTES, 'UTF-8'); ?></p>
-            <div class="meta"><?php echo htmlspecialchars($une['auteur'], ENT_QUOTES, 'UTF-8'); ?> | <?php echo htmlspecialchars($une['horaire'], ENT_QUOTES, 'UTF-8'); ?></div>
+            <a class="hero-main-link" href="<?php echo htmlspecialchars((string)$une['url'], ENT_QUOTES, 'UTF-8'); ?>">
+                <img class="hero-media" src="<?php echo htmlspecialchars($une['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($une['image_alt'], ENT_QUOTES, 'UTF-8'); ?>">
+                <?php if (!empty($une['is_image_expired'])): ?>
+                    <span class="image-expired-badge">Image expiree (date_cache depassee)</span>
+                <?php endif; ?>
+                <span class="tag"><?php echo htmlspecialchars($une['rubrique'], ENT_QUOTES, 'UTF-8'); ?></span>
+                <h2><?php echo htmlspecialchars($une['titre'], ENT_QUOTES, 'UTF-8'); ?></h2>
+                <p><?php echo htmlspecialchars($une['resume'], ENT_QUOTES, 'UTF-8'); ?></p>
+                <div class="meta"><?php echo htmlspecialchars($une['auteur'], ENT_QUOTES, 'UTF-8'); ?> | <?php echo htmlspecialchars($une['horaire'], ENT_QUOTES, 'UTF-8'); ?></div>
+            </a>
         </article>
 
         <aside class="card side-list">
@@ -333,7 +365,7 @@ require_once __DIR__ . '/../../inc/header.php';
                     <span class="tag"><?php echo htmlspecialchars($article['rubrique'], ENT_QUOTES, 'UTF-8'); ?></span>
                     <h3><?php echo htmlspecialchars($article['titre'], ENT_QUOTES, 'UTF-8'); ?></h3>
                     <p><?php echo htmlspecialchars($article['resume'], ENT_QUOTES, 'UTF-8'); ?></p>
-                    <a href="/pages/article-<?php echo (int)$article['id']; ?>.html">Lire l article</a>
+                    <a href="/pages/<?php echo rawurlencode((string)$article['slug']); ?>-<?php echo (int)$article['id']; ?>.html">Lire l article</a>
                 </article>
             <?php endforeach; ?>
         <?php else: ?>
@@ -345,13 +377,6 @@ require_once __DIR__ . '/../../inc/header.php';
     </div>
 </section>
 
-<section class="card newsletter">
-    <h2>Newsletter quotidienne</h2>
-    <p>Recevez chaque matin un resume des informations importantes.</p>
-    <form action="#" method="post">
-        <input type="email" name="email" placeholder="Votre email" required>
-        <button type="submit">Je m inscris</button>
-    </form>
-</section>
+
 
 <?php require_once __DIR__ . '/../../inc/footer.php';
