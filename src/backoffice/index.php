@@ -25,6 +25,7 @@ match($action) {
     'logout'    => Auth::logout(),
     'home'      => require __DIR__ . '/../app/views/bo/home.php',
     'article_list' => Article::list(),
+    'article_detail' => Article::detail(),
     'article_add' => Article::form(),
     'article_add_save' => Article::saveAjax(),
     'article_image_upload' => Article::uploadImageAjax(),

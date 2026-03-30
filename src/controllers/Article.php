@@ -86,6 +86,38 @@ class Article
         require __DIR__ . '/../app/views/bo/article_add.php';
     }
 
+    public static function detail(): void
+    {
+        $articleId = (int)($_GET['id'] ?? 0);
+        if ($articleId <= 0) {
+            redirect('/backoffice/?action=article_list');
+            return;
+        }
+
+        $stmt = getPDO()->prepare(
+            'SELECT a.id,
+                    a.valeur,
+                    a.date_,
+                    a.date_cache,
+                    a.statut,
+                    COALESCE(s.valeur, \'Source inconnue\') AS source,
+                    COALESCE(c.valeur, \'Sans categorie\') AS categorie
+             FROM article a
+             LEFT JOIN source s ON s.id_source = a.id_source
+             LEFT JOIN categorie_information c ON c.id_categorie = a.id_categorie
+             WHERE a.id = :id'
+        );
+        $stmt->execute([':id' => $articleId]);
+        $article = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        if ($article === null) {
+            redirect('/backoffice/?action=article_list');
+            return;
+        }
+
+        require __DIR__ . '/../app/views/bo/article_detail.php';
+    }
+
     public static function saveAjax(): void
     {
         header('Content-Type: application/json; charset=utf-8');
