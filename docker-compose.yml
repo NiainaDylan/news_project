@@ -11,6 +11,7 @@ services:
       - postgres
     environment:
       - APACHE_DOCUMENT_ROOT=/var/www/html
+      - TINIFY_API_KEY=tHt79fNspyQGYBFBQt9WqXRDVZ1QkwCJ
     command: >
       bash -c "apt-get update && apt-get install -y --no-install-recommends libpq-dev && docker-php-ext-install pdo_pgsql pgsql && a2enmod rewrite && rm -rf /var/lib/apt/lists/* && apache2-foreground"
 

@@ -1,4 +1,3 @@
-\c news_db;
 
 CREATE TABLE IF NOT EXISTS categorie_information (
     id_categorie SERIAL,
