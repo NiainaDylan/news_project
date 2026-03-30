@@ -5,8 +5,9 @@ require_once __DIR__ . '/../../inc/db.php';
 require_once __DIR__ . '/../../inc/functions.php';
 
 $searchQuery = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
-$selectedTheme = isset($_GET['theme']) ? trim((string)$_GET['theme']) : '';
-$selectedPeriod = isset($_GET['periode']) ? trim((string)$_GET['periode']) : '';
+$selectedCategoryId = isset($_GET['id_categorie']) ? (int)$_GET['id_categorie'] : 0;
+$selectedSourceId = isset($_GET['id_source']) ? (int)$_GET['id_source'] : 0;
+$selectedPeriod = isset($_GET['periode']) ? trim((string)$_GET['periode']) : 'mois_courant_auto';
 $selectedArticleId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $requestedSlug = isset($_GET['slug']) ? trim((string)$_GET['slug']) : '';
 
@@ -218,13 +219,14 @@ if (!function_exists('foBuildCard')) {
     }
 }
 
-$availableThemes = [];
+$availableCategories = [];
+$availableSources = [];
 $rows = [];
 
 try {
     $pdo = getPDO();
 
-    $where = ['a.statut = TRUE'];
+    $where = [];
     $params = [];
 
     if ($searchQuery !== '') {
@@ -232,10 +234,17 @@ try {
         $params[':q'] = '%' . $searchQuery . '%';
     }
 
-    if ($selectedTheme !== '') {
-        $where[] = 'c.valeur = :theme';
-        $params[':theme'] = $selectedTheme;
+    if ($selectedCategoryId > 0) {
+        $where[] = 'a.id_categorie = :id_categorie';
+        $params[':id_categorie'] = $selectedCategoryId;
     }
+
+    if ($selectedSourceId > 0) {
+        $where[] = 'a.id_source = :id_source';
+        $params[':id_source'] = $selectedSourceId;
+    }
+
+    $where[] = 'a.statut = TRUE';
 
     if ($selectedArticleId > 0) {
         $where[] = 'a.id = :id';
@@ -248,6 +257,12 @@ try {
         $where[] = "a.date_ >= NOW() - INTERVAL '7 days'";
     } elseif ($selectedPeriod === 'month') {
         $where[] = "a.date_ >= NOW() - INTERVAL '30 days'";
+    } else {
+        $where[] = "a.date_ >= date_trunc('month', NOW()) AND a.date_ < (date_trunc('month', NOW()) + INTERVAL '1 month')";
+    }
+
+    if (empty($where)) {
+        $where[] = '1=1';
     }
 
     $sql = "SELECT a.id,
@@ -264,14 +279,32 @@ try {
             LIMIT 30";
 
     $statement = $pdo->prepare($sql);
-    $statement->execute($params);
+    foreach ($params as $key => $value) {
+        if (in_array($key, [':id_categorie', ':id_source', ':id'], true)) {
+            $statement->bindValue($key, (int)$value, PDO::PARAM_INT);
+            continue;
+        }
+
+        $statement->bindValue($key, (string)$value, PDO::PARAM_STR);
+    }
+    $statement->execute();
     $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
 
-    $themesStatement = $pdo->query("SELECT DISTINCT valeur FROM categorie_information WHERE TRIM(valeur) <> '' ORDER BY valeur ASC");
-    foreach ($themesStatement->fetchAll(PDO::FETCH_COLUMN) as $themeLabel) {
-        $label = trim((string)$themeLabel);
-        if ($label !== '') {
-            $availableThemes[$label] = $label;
+    $categoriesStatement = $pdo->query("SELECT id_categorie, valeur FROM categorie_information WHERE TRIM(valeur) <> '' ORDER BY valeur ASC");
+    foreach ($categoriesStatement->fetchAll(PDO::FETCH_ASSOC) as $categoryRow) {
+        $id = (int)($categoryRow['id_categorie'] ?? 0);
+        $label = trim((string)($categoryRow['valeur'] ?? ''));
+        if ($id > 0 && $label !== '') {
+            $availableCategories[$id] = $label;
+        }
+    }
+
+    $sourcesStatement = $pdo->query("SELECT id_source, valeur FROM source WHERE TRIM(valeur) <> '' ORDER BY valeur ASC");
+    foreach ($sourcesStatement->fetchAll(PDO::FETCH_ASSOC) as $sourceRow) {
+        $id = (int)($sourceRow['id_source'] ?? 0);
+        $label = trim((string)($sourceRow['valeur'] ?? ''));
+        if ($id > 0 && $label !== '') {
+            $availableSources[$id] = $label;
         }
     }
 } catch (Throwable $e) {
@@ -371,7 +404,7 @@ require_once __DIR__ . '/../../inc/header.php';
         <?php else: ?>
             <article class="card article">
                 <h3>Aucun article correspondant aux filtres</h3>
-                <p>Essaie de modifier la recherche, le theme ou la periode.</p>
+                <p>Essaie de modifier la recherche, la categorie, la source, le statut ou la periode.</p>
             </article>
         <?php endif; ?>
     </div>
