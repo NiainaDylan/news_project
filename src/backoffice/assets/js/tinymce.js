@@ -124,8 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       alert(data.message || 'Article enregistré.');
-      form.reset();
-      editor.setContent('');
+      window.location.href = '/backoffice/?action=article_list';
 
     } catch (err) {
       alert('Erreur réseau, merci de réessayer.');

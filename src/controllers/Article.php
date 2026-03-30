@@ -55,6 +55,36 @@ class Article
         require __DIR__ . '/../app/views/bo/article_list.php';
     }
 
+    public static function form(): void
+    {
+        $categories = Categorie::findAll();
+        $sources = Source::findAll();
+
+        $articleToEdit = null;
+        $articleId = (int)($_GET['id'] ?? 0);
+
+        if ($articleId > 0) {
+            $stmt = getPDO()->prepare(
+                'SELECT id,
+                        id_source,
+                        id_categorie,
+                        valeur,
+                        statut
+                 FROM article
+                 WHERE id = :id'
+            );
+            $stmt->execute([':id' => $articleId]);
+            $articleToEdit = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+            if ($articleToEdit === null) {
+                redirect('/backoffice/?action=article_list');
+                return;
+            }
+        }
+
+        require __DIR__ . '/../app/views/bo/article_add.php';
+    }
+
     public static function saveAjax(): void
     {
         header('Content-Type: application/json; charset=utf-8');
@@ -77,6 +107,7 @@ class Article
         $idCategorie = (int)($_POST['id_categorie'] ?? 0);
         $idSource    = (int)($_POST['id_source']    ?? 0);
         $content     = trim($_POST['content']       ?? '');
+        $articleId   = (int)($_POST['article_id']   ?? 0);
         $dateCache   = trim((string)($_POST['date_cache'] ?? ''));
         $imagesRaw   = (string)($_POST['images_meta'] ?? '[]');
 
@@ -100,21 +131,41 @@ class Article
         }
 
         $pdo = getPDO();
+        $isEdit = $articleId > 0;
 
         try {
             $pdo->beginTransaction();
 
-            $stmt = $pdo->prepare(
-                'INSERT INTO article (id_source, id_categorie, valeur)
-                 VALUES (:id_source, :id_categorie, :valeur)'
-            );
-            $stmt->execute([
-                ':id_source'    => $idSource,
-                ':id_categorie' => $idCategorie,
-                ':valeur'       => $content,
-            ]);
+            if ($isEdit) {
+                $stmt = $pdo->prepare(
+                    'UPDATE article
+                     SET id_source = :id_source,
+                         id_categorie = :id_categorie,
+                         valeur = :valeur
+                     WHERE id = :id'
+                );
+                $stmt->execute([
+                    ':id_source'    => $idSource,
+                    ':id_categorie' => $idCategorie,
+                    ':valeur'       => $content,
+                    ':id'           => $articleId,
+                ]);
 
-            $articleId = (int)$pdo->lastInsertId();
+                $deleteImagesStmt = $pdo->prepare('DELETE FROM article_image WHERE id = :id');
+                $deleteImagesStmt->execute([':id' => $articleId]);
+            } else {
+                $stmt = $pdo->prepare(
+                    'INSERT INTO article (id_source, id_categorie, valeur)
+                     VALUES (:id_source, :id_categorie, :valeur)'
+                );
+                $stmt->execute([
+                    ':id_source'    => $idSource,
+                    ':id_categorie' => $idCategorie,
+                    ':valeur'       => $content,
+                ]);
+
+                $articleId = (int)$pdo->lastInsertId();
+            }
 
             if (!empty($imagesMeta)) {
                 $imageStmt = $pdo->prepare(
@@ -154,7 +205,11 @@ class Article
             return;
         }
 
-        echo json_encode(['success' => true, 'message' => 'Article enregistré']);
+        echo json_encode([
+            'success' => true,
+            'message' => $isEdit ? 'Article mis à jour' : 'Article enregistré',
+            'article_id' => $articleId,
+        ]);
     }
 
     public static function uploadImageAjax(): void
