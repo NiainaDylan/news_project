@@ -292,10 +292,10 @@ $themeNavLinks = array_slice($themesForFilter, 0, 4, true);
         }
 
         .hero-media {
-            width: 100%;
-            height: 220px;
+            /* width: 100%; */
+            /* height: auto; */
             border-radius: 12px;
-            object-fit: cover;
+            /* object-fit: contain; */
             margin-bottom: 12px;
             display: block;
             background: #e9edf2;
@@ -364,9 +364,9 @@ $themeNavLinks = array_slice($themesForFilter, 0, 4, true);
 
         .article-media {
             width: 100%;
-            height: 150px;
+            height: auto;
             border-radius: 10px;
-            object-fit: cover;
+            /* object-fit: contain; */
             margin-bottom: 10px;
             border: 1px solid #e8edf2;
             display: block;
