@@ -40,6 +40,7 @@ class Article
             'SELECT a.id,
                     a.valeur,
                     a.date_,
+                    a.statut,
                     s.valeur AS source,
                     c.valeur AS categorie
              FROM article a
@@ -49,6 +50,8 @@ class Article
         );
 
         $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $categories = Categorie::findAll();
+        $sources = Source::findAll();
         require __DIR__ . '/../app/views/bo/article_list.php';
     }
 
@@ -391,18 +394,33 @@ class Article
         }
 
         if ($statut !== null) {
-            $where[] = 'a.statut = :statut';
-            $params[':statut'] = $statut;
+            $where[] = 'a.statut = CAST(:statut AS boolean)';
+            $params[':statut'] = $statut ? 'true' : 'false';
         }
 
         $query .= ' WHERE ' . implode(' AND ', $where);
-        $query .= ' ORDER BY a.id DESC, a.date_ DESC LIMIT ' . $limitInsertion;
+        $query .= ' ORDER BY a.id DESC, a.date_ DESC LIMIT :limit_insertion';
 
         try {
             $stmt = getPDO()->prepare($query);
-            $stmt->execute($params);
+
+            foreach ($params as $key => $value) {
+                if ($key === ':id_categorie' || $key === ':id_source') {
+                    $stmt->bindValue($key, (int)$value, PDO::PARAM_INT);
+                    continue;
+                }
+
+                if ($key === ':statut') {
+                    $stmt->bindValue($key, (string)$value, PDO::PARAM_STR);
+                    continue;
+                }
+            }
+
+            $stmt->bindValue(':limit_insertion', $limitInsertion, PDO::PARAM_INT);
+            $stmt->execute();
             $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
+            error_log('Article::filterAjax error: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['success' => false, 'message' => 'Erreur lors du filtrage']);
             return;
