@@ -26,6 +26,7 @@
                     const date = article.date_ ? `<span class="article-card__date">${escapeHtml(article.date_)}</span>` : '';
                     const source = article.source ? `<div class="article-card__source">Source : ${escapeHtml(article.source)}</div>` : '';
                     const content = article.valeur ? String(article.valeur) : '';
+                    const editUrl = `/backoffice/?action=article_add&id=${id}`;
 
                     return `<div class="article-card">
                                 <div class="article-card__meta">
@@ -35,6 +36,7 @@
                                 </div>
                                 <div class="article-card__content">${content}</div>
                                 ${source}
+                                <div><a class="btn btn-secondary" href="${editUrl}">Éditer</a></div>
                             </div>`;
                 }).join('');
 

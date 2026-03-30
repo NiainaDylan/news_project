@@ -23,11 +23,7 @@ match($action) {
     'logout'    => Auth::logout(),
     'home'      => require __DIR__ . '/../app/views/bo/home.php',
     'article_list' => Article::list(),
-    'article_add' => (function () {
-        $categories = Categorie::findAll();
-        $sources    = Source::findAll();
-        require __DIR__ . '/../app/views/bo/article_add.php';
-    })(),
+    'article_add' => Article::form(),
     'article_add_save' => Article::saveAjax(),
     'article_image_upload' => Article::uploadImageAjax(),
     'article_filter' => Article::filterAjax(),
