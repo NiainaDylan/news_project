@@ -108,6 +108,10 @@
                                     Source : <?= e((string)$article['source']) ?>
                                 </div>
                             <?php endif; ?>
+
+                            <div>
+                                <a class="btn btn-secondary" href="/backoffice/?action=article_add&id=<?= (int)$article['id'] ?>">Éditer</a>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
