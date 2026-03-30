@@ -30,5 +30,6 @@ match($action) {
     })(),
     'article_add_save' => Article::saveAjax(),
     'article_image_upload' => Article::uploadImageAjax(),
+    'article_filter' => Article::filterAjax(),
     default     => redirect('/backoffice/?action=home'),
 };

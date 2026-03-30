@@ -297,4 +297,128 @@ class Article
             'local_cache' => $absPath,
         ]);
     }
+
+    public static function filterAjax(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!isPost()) {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Méthode non autorisée']);
+            return;
+        }
+
+        $isAjaxHeader = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+            && strtolower((string)$_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        $acceptJson   = isset($_SERVER['HTTP_ACCEPT'])
+            && str_contains(strtolower((string)$_SERVER['HTTP_ACCEPT']), 'application/json');
+
+        if (!$isAjaxHeader && !$acceptJson) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Requête AJAX attendue']);
+            return;
+        }
+
+        $idCategorieRaw = trim((string)($_POST['id_categorie'] ?? ''));
+        $idSourceRaw    = trim((string)($_POST['id_source'] ?? ''));
+        $statutRaw      = trim((string)($_POST['statut'] ?? ''));
+        $limitInsertionRaw = trim((string)($_POST['limit_insertion'] ?? ''));
+
+        $idCategorie = null;
+        if ($idCategorieRaw !== '') {
+            if (!ctype_digit($idCategorieRaw) || (int)$idCategorieRaw <= 0) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Catégorie invalide']);
+                return;
+            }
+            $idCategorie = (int)$idCategorieRaw;
+        }
+
+        $idSource = null;
+        if ($idSourceRaw !== '') {
+            if (!ctype_digit($idSourceRaw) || (int)$idSourceRaw <= 0) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Source invalide']);
+                return;
+            }
+            $idSource = (int)$idSourceRaw;
+        }
+
+        $statut = null;
+        if ($statutRaw !== '') {
+            if ($statutRaw !== '0' && $statutRaw !== '1') {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Statut invalide']);
+                return;
+            }
+            $statut = $statutRaw === '1';
+        }
+
+        if (!ctype_digit($limitInsertionRaw)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'limit_insertion invalide']);
+            return;
+        }
+
+        $limitInsertion = (int)$limitInsertionRaw;
+        if ($limitInsertion <= 0 || $limitInsertion > 200) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'limit_insertion hors limites']);
+            return;
+        }
+
+        $query = 'SELECT a.id,
+                         a.valeur,
+                         a.date_,
+                         a.statut,
+                         s.valeur AS source,
+                         c.valeur AS categorie
+                  FROM article a
+                  LEFT JOIN source s ON s.id_source = a.id_source
+                  LEFT JOIN categorie_information c ON c.id_categorie = a.id_categorie';
+
+        $where = ["a.date_ >= date_trunc('month', NOW()) AND a.date_ < (date_trunc('month', NOW()) + INTERVAL '1 month')"];
+        $params = [];
+
+        if ($idCategorie !== null) {
+            $where[] = 'a.id_categorie = :id_categorie';
+            $params[':id_categorie'] = $idCategorie;
+        }
+
+        if ($idSource !== null) {
+            $where[] = 'a.id_source = :id_source';
+            $params[':id_source'] = $idSource;
+        }
+
+        if ($statut !== null) {
+            $where[] = 'a.statut = :statut';
+            $params[':statut'] = $statut;
+        }
+
+        $query .= ' WHERE ' . implode(' AND ', $where);
+        $query .= ' ORDER BY a.id DESC, a.date_ DESC LIMIT ' . $limitInsertion;
+
+        try {
+            $stmt = getPDO()->prepare($query);
+            $stmt->execute($params);
+            $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Erreur lors du filtrage']);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'count' => count($articles),
+            'filters_applied' => [
+                'periode' => 'mois_courant_auto',
+                'limit_insertion' => $limitInsertion,
+                'id_categorie' => $idCategorie,
+                'id_source' => $idSource,
+                'statut' => $statut,
+            ],
+            'articles' => $articles,
+        ]);
+    }
 }
