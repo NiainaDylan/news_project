@@ -1,17 +1,17 @@
 
-CREATE TABLE categorie_information (
+CREATE TABLE IF NOT EXISTS categorie_information (
     id_categorie SERIAL,
     valeur       VARCHAR(50) NOT NULL,
     PRIMARY KEY (id_categorie)
 );
 
-CREATE TABLE source (
+CREATE TABLE IF NOT EXISTS source (
     id_source SERIAL,
     valeur    VARCHAR(50) NOT NULL,
     PRIMARY KEY (id_source)
 );
 
-CREATE TABLE article (
+CREATE TABLE IF NOT EXISTS article (
     id           SERIAL,
     id_source    INT,
     id_categorie INT,

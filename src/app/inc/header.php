@@ -1,4 +1,16 @@
 <?php
+$searchValue = isset($searchQuery) ? (string) $searchQuery : '';
+$selectedThemeValue = isset($selectedTheme) ? (string) $selectedTheme : '';
+$selectedPeriodValue = isset($selectedPeriod) ? (string) $selectedPeriod : '';
+$themesForFilter = isset($availableThemes) && is_array($availableThemes) && !empty($availableThemes)
+    ? $availableThemes
+    : [
+        'Situation sur le terrain' => 'Situation sur le terrain',
+        'Diplomatie' => 'Diplomatie',
+        'Impact humanitaire' => 'Impact humanitaire',
+        'Marches de l energie' => 'Marches de l energie',
+        'Analyses et decryptage' => 'Analyses et decryptage'
+    ];
 ?><!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -409,20 +421,20 @@
                 <a href="#tech">Tech</a>
             </nav>
             <form class="tools-bar" action="#" method="get">
-                <input type="search" name="q" placeholder="Rechercher: Iran, Téhéran, diplomatie, cessez-le-feu...">
+                <input type="search" name="q" value="<?php echo htmlspecialchars($searchValue, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Rechercher: Iran, Téhéran, diplomatie, cessez-le-feu...">
                 <select name="theme">
                     <option value="">Filtre: Theme</option>
-                    <option value="terrain">Situation sur le terrain</option>
-                    <option value="diplomatie">Diplomatie</option>
-                    <option value="humanitaire">Impact humanitaire</option>
-                    <option value="energie">Marches de l energie</option>
-                    <option value="analyse">Analyses et decryptage</option>
+                    <?php foreach ($themesForFilter as $themeValue => $themeLabel): ?>
+                        <option value="<?php echo htmlspecialchars((string) $themeValue, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $selectedThemeValue === (string) $themeValue ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars((string) $themeLabel, ENT_QUOTES, 'UTF-8'); ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
                 <select name="periode">
-                    <option value="">Filtre: Periode</option>
-                    <option value="today">Aujourd hui</option>
-                    <option value="week">Cette semaine</option>
-                    <option value="month">Ce mois</option>
+                    <option value="" <?php echo $selectedPeriodValue === '' ? 'selected' : ''; ?>>Filtre: Periode</option>
+                    <option value="today" <?php echo $selectedPeriodValue === 'today' ? 'selected' : ''; ?>>Aujourd hui</option>
+                    <option value="week" <?php echo $selectedPeriodValue === 'week' ? 'selected' : ''; ?>>Cette semaine</option>
+                    <option value="month" <?php echo $selectedPeriodValue === 'month' ? 'selected' : ''; ?>>Ce mois</option>
                 </select>
                 <button type="submit">Filtrer</button>
             </form>
