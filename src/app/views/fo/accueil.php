@@ -296,7 +296,8 @@ if (!function_exists('foBuildCard')) {
     {
         $contentHtml = (string)($row['valeur'] ?? '');
         $plain = foTinyText($contentHtml);
-        $title = foExtractTitle($contentHtml);
+        $storedTitle = trim((string)($row['title'] ?? ''));
+        $title = $storedTitle !== '' ? foTruncate($storedTitle, 120) : foExtractTitle($contentHtml);
         $image = foNormalizeImageSrc(foExtractImageFromHtml($contentHtml), $fallbackImage);
         if ($image === $fallbackImage) {
             $image = foNormalizeImageSrc(foExtractLocalCacheFromHtml($contentHtml), $fallbackImage);
@@ -342,7 +343,7 @@ try {
     $params = [];
 
     if ($searchQuery !== '') {
-        $where[] = 'a.valeur ILIKE :q';
+        $where[] = '(a.valeur ILIKE :q OR a.title ILIKE :q)';
         $params[':q'] = '%' . $searchQuery . '%';
     }
 
@@ -380,6 +381,7 @@ try {
     }
 
     $sql = "SELECT a.id,
+                   a.title,
                    a.valeur,
                    a.date_,
                    a.date_cache,
@@ -441,6 +443,7 @@ if ($selectedArticleId > 0 && $une !== null) {
     try {
         $relatedStmt = $pdo->prepare(
             "SELECT a.id,
+                    a.title,
                     a.valeur,
                     a.date_,
                     a.date_cache,
@@ -534,16 +537,16 @@ require_once __DIR__ . '/../../inc/header.php';
 
     .hero-main .hero-media,
     .article-media {
-        height: auto;
-        max-height: 360px;
+        /* height: auto; */
+        /* max-height: 360px; */
         object-fit: contain;
         background: transparent;
     }
 
     .article-detail .hero-media {
         height: auto;
-        max-height: 520px;
-        object-fit: contain;
+        /* max-height: 520px; */
+        /* object-fit: contain; */
         background: transparent;
         border: 1px solid var(--line);
     }

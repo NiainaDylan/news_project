@@ -311,7 +311,7 @@ $metaOgImageValue = isset($metaOgImage) ? trim((string)$metaOgImage) : '';
 
         .hero-media {
             /* width: 100%; */
-            /* height: auto; */
+            height: auto;
             border-radius: 12px;
             /* object-fit: contain; */
             margin-bottom: 12px;
@@ -381,7 +381,7 @@ $metaOgImageValue = isset($metaOgImage) ? trim((string)$metaOgImage) : '';
         }
 
         .article-media {
-            width: 100%;
+            /* width: 100%; */
             height: auto;
             border-radius: 10px;
             /* object-fit: contain; */

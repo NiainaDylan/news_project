@@ -21,6 +21,18 @@
             <?php endif; ?>
 
             <div>
+                <label for="title">Titre</label>
+                <input
+                    id="title"
+                    name="title"
+                    type="text"
+                    maxlength="255"
+                    required
+                    value="<?= $isEdit ? e((string)($articleToEdit['title'] ?? '')) : '' ?>"
+                >
+            </div>
+
+            <div>
                 <label for="id_categorie">Catégorie</label>
                 <select id="id_categorie" name="id_categorie" required>
                     <option value="">— Choisir une catégorie —</option>

@@ -18,6 +18,9 @@ $public = ['login'];
 
 if (!isset($_SESSION['admin']) && !in_array($action, $public)) {
     redirect('/backoffice/?action=login');
+} else if (isset($_SESSION['admin']) && in_array($action, $public)) {
+    redirect('/backoffice/?action=home');
+
 }
 
 match($action) {
