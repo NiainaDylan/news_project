@@ -1,2 +1,2 @@
 INSERT INTO admin (login, password)
-VALUES ('admin', 'admin123');
+VALUES ('admin', 'administrateurBONews');
