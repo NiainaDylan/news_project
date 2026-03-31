@@ -1,3 +1,2 @@
 <?php
-header('Location: /accueil', true, 302);
-exit;
+require_once __DIR__ . '/../index.php';
