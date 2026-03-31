@@ -34,6 +34,28 @@ class Article
         return self::UPLOAD_ABS_DIR . '/' . $fileName;
     }
 
+    private static function stripLeadingTitleHeading(string $html): string
+    {
+        return preg_replace('/^\s*<h1\b[^>]*>.*?<\/h1>\s*/is', '', $html, 1) ?? $html;
+    }
+
+    private static function extractLeadingTitleHeading(string $html): string
+    {
+        if (preg_match('/^\s*<h1\b[^>]*>(.*?)<\/h1>/is', $html, $matches) === 1) {
+            return trim(strip_tags(html_entity_decode((string)$matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        }
+
+        return '';
+    }
+
+    private static function buildStoredContent(string $title, string $content): string
+    {
+        $cleanTitle = trim($title);
+        $cleanContent = self::stripLeadingTitleHeading(trim($content));
+
+        return '<h1>' . e($cleanTitle) . '</h1>\n' . $cleanContent;
+    }
+
     public static function list(): void
     {
         $stmt = getPDO()->query(
@@ -66,6 +88,7 @@ class Article
         if ($articleId > 0) {
             $stmt = getPDO()->prepare(
                 'SELECT id,
+                        title,
                         id_source,
                         id_categorie,
                         valeur,
@@ -81,6 +104,13 @@ class Article
                 redirect('/backoffice/?action=article_list');
                 return;
             }
+
+            $existingContent = (string)($articleToEdit['valeur'] ?? '');
+            $extractedTitle = self::extractLeadingTitleHeading($existingContent);
+            if (trim((string)($articleToEdit['title'] ?? '')) === '' && $extractedTitle !== '') {
+                $articleToEdit['title'] = $extractedTitle;
+            }
+            $articleToEdit['valeur'] = self::stripLeadingTitleHeading($existingContent);
         }
 
         require __DIR__ . '/../app/views/bo/article_add.php';
@@ -139,12 +169,20 @@ class Article
 
         $idCategorie = (int)($_POST['id_categorie'] ?? 0);
         $idSource    = (int)($_POST['id_source']    ?? 0);
+        $title       = trim((string)($_POST['title'] ?? ''));
         $content     = trim($_POST['content']       ?? '');
         $articleId   = (int)($_POST['article_id']   ?? 0);
         $dateCache   = trim((string)($_POST['date_cache'] ?? ''));
-        if ($idCategorie <= 0 || $idSource <= 0 || $content === '') {
+        if ($idCategorie <= 0 || $idSource <= 0 || $title === '' || $content === '') {
             http_response_code(422);
             echo json_encode(['success' => false, 'message' => 'Champs invalides']);
+            return;
+        }
+
+        $titleLength = function_exists('mb_strlen') ? mb_strlen($title, 'UTF-8') : strlen($title);
+        if ($titleLength > 255) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Titre trop long (255 caractères max)']);
             return;
         }
 
@@ -155,6 +193,7 @@ class Article
         }
 
         $dateCacheValue = $dateCache !== '' ? ($dateCache . ' 23:59:59') : null;
+        $storedContent = self::buildStoredContent($title, $content);
 
         $pdo = getPDO();
         $isEdit = $articleId > 0;
@@ -167,6 +206,7 @@ class Article
                     'UPDATE article
                      SET id_source = :id_source,
                          id_categorie = :id_categorie,
+                         title = :title,
                          valeur = :valeur,
                          date_cache = :date_cache
                      WHERE id = :id'
@@ -174,19 +214,21 @@ class Article
                 $stmt->execute([
                     ':id_source'    => $idSource,
                     ':id_categorie' => $idCategorie,
-                    ':valeur'       => $content,
+                    ':title'        => $title,
+                    ':valeur'       => $storedContent,
                     ':date_cache'   => $dateCacheValue,
                     ':id'           => $articleId,
                 ]);
             } else {
                 $stmt = $pdo->prepare(
-                    'INSERT INTO article (id_source, id_categorie, valeur, date_cache)
-                     VALUES (:id_source, :id_categorie, :valeur, :date_cache)'
+                    'INSERT INTO article (id_source, id_categorie, title, valeur, date_cache)
+                     VALUES (:id_source, :id_categorie, :title, :valeur, :date_cache)'
                 );
                 $stmt->execute([
                     ':id_source'    => $idSource,
                     ':id_categorie' => $idCategorie,
-                    ':valeur'       => $content,
+                    ':title'        => $title,
+                    ':valeur'       => $storedContent,
                     ':date_cache'   => $dateCacheValue,
                 ]);
 
