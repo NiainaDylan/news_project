@@ -1,0 +1,538 @@
+<?php
+declare(strict_types=1);
+
+class Article
+{
+    private const UPLOAD_WEB_PREFIX = '/uploads/articles/';
+    private const UPLOAD_ABS_DIR = '/var/www/html/uploads/articles';
+
+    private static function normalizeLocalCachePath(string $rawValue): string
+    {
+        $rawValue = trim($rawValue);
+        if ($rawValue === '') {
+            return '';
+        }
+
+        if (str_starts_with($rawValue, self::UPLOAD_ABS_DIR . '/')) {
+            return $rawValue;
+        }
+
+        $path = (string)(parse_url($rawValue, PHP_URL_PATH) ?? $rawValue);
+        $path = preg_replace('#^(?:\./|\.\./)+#', '/', $path) ?? $path;
+        $path = '/' . ltrim($path, '/');
+
+        $prefixPos = strpos($path, self::UPLOAD_WEB_PREFIX);
+        if ($prefixPos === false) {
+            return '';
+        }
+
+        $fileName = basename(substr($path, $prefixPos + strlen(self::UPLOAD_WEB_PREFIX)));
+        if ($fileName === '' || $fileName === '.' || $fileName === '..') {
+            return '';
+        }
+
+        return self::UPLOAD_ABS_DIR . '/' . $fileName;
+    }
+
+    private static function stripLeadingTitleHeading(string $html): string
+    {
+        return preg_replace('/^\s*<h1\b[^>]*>.*?<\/h1>\s*/is', '', $html, 1) ?? $html;
+    }
+
+    private static function extractLeadingTitleHeading(string $html): string
+    {
+        if (preg_match('/^\s*<h1\b[^>]*>(.*?)<\/h1>/is', $html, $matches) === 1) {
+            return trim(strip_tags(html_entity_decode((string)$matches[1], ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        }
+
+        return '';
+    }
+
+    private static function buildStoredContent(string $title, string $content): string
+    {
+        $cleanTitle = trim($title);
+        $cleanContent = self::stripLeadingTitleHeading(trim($content));
+
+        return '<h1>' . e($cleanTitle) . '</h1>\n' . $cleanContent;
+    }
+
+    public static function list(): void
+    {
+        $stmt = getPDO()->query(
+            'SELECT a.id,
+                    a.valeur,
+                    a.date_,
+                    a.statut,
+                    s.valeur AS source,
+                    c.valeur AS categorie
+             FROM article a
+             LEFT JOIN source s ON s.id_source = a.id_source
+             LEFT JOIN categorie_information c ON c.id_categorie = a.id_categorie
+             ORDER BY a.date_ DESC, a.id DESC'
+        );
+
+        $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $categories = Categorie::findAll();
+        $sources = Source::findAll();
+        require __DIR__ . '/../app/views/bo/article_list.php';
+    }
+
+    public static function form(): void
+    {
+        $categories = Categorie::findAll();
+        $sources = Source::findAll();
+
+        $articleToEdit = null;
+        $articleId = (int)($_GET['id'] ?? 0);
+
+        if ($articleId > 0) {
+            $stmt = getPDO()->prepare(
+                'SELECT id,
+                        title,
+                        id_source,
+                        id_categorie,
+                        valeur,
+                        date_cache,
+                        statut
+                 FROM article
+                 WHERE id = :id'
+            );
+            $stmt->execute([':id' => $articleId]);
+            $articleToEdit = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+            if ($articleToEdit === null) {
+                redirect('/backoffice/?action=article_list');
+                return;
+            }
+
+            $existingContent = (string)($articleToEdit['valeur'] ?? '');
+            $extractedTitle = self::extractLeadingTitleHeading($existingContent);
+            if (trim((string)($articleToEdit['title'] ?? '')) === '' && $extractedTitle !== '') {
+                $articleToEdit['title'] = $extractedTitle;
+            }
+            $articleToEdit['valeur'] = self::stripLeadingTitleHeading($existingContent);
+        }
+
+        require __DIR__ . '/../app/views/bo/article_add.php';
+    }
+
+    public static function detail(): void
+    {
+        $articleId = (int)($_GET['id'] ?? 0);
+        if ($articleId <= 0) {
+            redirect('/backoffice/?action=article_list');
+            return;
+        }
+
+        $stmt = getPDO()->prepare(
+            'SELECT a.id,
+                    a.valeur,
+                    a.date_,
+                    a.date_cache,
+                    a.statut,
+                    COALESCE(s.valeur, \'Source inconnue\') AS source,
+                    COALESCE(c.valeur, \'Sans categorie\') AS categorie
+             FROM article a
+             LEFT JOIN source s ON s.id_source = a.id_source
+             LEFT JOIN categorie_information c ON c.id_categorie = a.id_categorie
+             WHERE a.id = :id'
+        );
+        $stmt->execute([':id' => $articleId]);
+        $article = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        if ($article === null) {
+            redirect('/backoffice/?action=article_list');
+            return;
+        }
+
+        require __DIR__ . '/../app/views/bo/article_detail.php';
+    }
+
+    public static function saveAjax(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!isPost()) {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Méthode non autorisée']);
+            return;
+        }
+
+        $isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+            && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
+        if (!$isAjax) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Requête AJAX attendue']);
+            return;
+        }
+
+        $idCategorie = (int)($_POST['id_categorie'] ?? 0);
+        $idSource    = (int)($_POST['id_source']    ?? 0);
+        $title       = trim((string)($_POST['title'] ?? ''));
+        $content     = trim($_POST['content']       ?? '');
+        $articleId   = (int)($_POST['article_id']   ?? 0);
+        $dateCache   = trim((string)($_POST['date_cache'] ?? ''));
+        if ($idCategorie <= 0 || $idSource <= 0 || $title === '' || $content === '') {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Champs invalides']);
+            return;
+        }
+
+        $titleLength = function_exists('mb_strlen') ? mb_strlen($title, 'UTF-8') : strlen($title);
+        if ($titleLength > 255) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Titre trop long (255 caractères max)']);
+            return;
+        }
+
+        if ($dateCache !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateCache)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Date d\'expiration invalide']);
+            return;
+        }
+
+        $dateCacheValue = $dateCache !== '' ? ($dateCache . ' 23:59:59') : null;
+        $storedContent = self::buildStoredContent($title, $content);
+
+        $pdo = getPDO();
+        $isEdit = $articleId > 0;
+
+        try {
+            $pdo->beginTransaction();
+
+            if ($isEdit) {
+                $stmt = $pdo->prepare(
+                    'UPDATE article
+                     SET id_source = :id_source,
+                         id_categorie = :id_categorie,
+                         title = :title,
+                         valeur = :valeur,
+                         date_cache = :date_cache
+                     WHERE id = :id'
+                );
+                $stmt->execute([
+                    ':id_source'    => $idSource,
+                    ':id_categorie' => $idCategorie,
+                    ':title'        => $title,
+                    ':valeur'       => $storedContent,
+                    ':date_cache'   => $dateCacheValue,
+                    ':id'           => $articleId,
+                ]);
+            } else {
+                $stmt = $pdo->prepare(
+                    'INSERT INTO article (id_source, id_categorie, title, valeur, date_cache)
+                     VALUES (:id_source, :id_categorie, :title, :valeur, :date_cache)'
+                );
+                $stmt->execute([
+                    ':id_source'    => $idSource,
+                    ':id_categorie' => $idCategorie,
+                    ':title'        => $title,
+                    ':valeur'       => $storedContent,
+                    ':date_cache'   => $dateCacheValue,
+                ]);
+
+                $articleId = (int)$pdo->lastInsertId();
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de l\'enregistrement']);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'message' => $isEdit ? 'Article mis à jour' : 'Article enregistré',
+            'article_id' => $articleId,
+        ]);
+    }
+
+    public static function uploadImageAjax(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!isPost()) {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Méthode non autorisée']);
+            return;
+        }
+
+        $isAjaxHeader = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+            && strtolower((string)$_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        $acceptJson   = isset($_SERVER['HTTP_ACCEPT'])
+            && str_contains(strtolower((string)$_SERVER['HTTP_ACCEPT']), 'application/json');
+
+        if (!$isAjaxHeader && !$acceptJson) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Requête AJAX attendue']);
+            return;
+        }
+
+        if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'Fichier invalide']);
+            return;
+        }
+
+        $apiKey = (string)getenv('TINIFY_API_KEY');
+        if ($apiKey === '') {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'TINIFY_API_KEY manquante']);
+            return;
+        }
+
+        $tmpPath      = $_FILES['file']['tmp_name'];
+        $originalName = (string)($_FILES['file']['name'] ?? 'image.jpg');
+        $ext          = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
+            $ext = 'jpg';
+        }
+
+        // Dimensions envoyées par TinyMCE
+        $width  = (int)($_POST['width']  ?? 0);
+        $height = (int)($_POST['height'] ?? 0);
+
+        $binary = file_get_contents($tmpPath);
+        if ($binary === false) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Lecture fichier impossible']);
+            return;
+        }
+
+        // Étape 1 : compression initiale (shrink)
+        $ch = curl_init('https://api.tinify.com/shrink');
+        curl_setopt_array($ch, [
+            CURLOPT_USERPWD        => 'api:' . $apiKey,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $binary,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADER         => true,
+            CURLOPT_TIMEOUT        => 30,
+        ]);
+
+        $response = curl_exec($ch);
+        if ($response === false) {
+            curl_close($ch);
+            http_response_code(502);
+            echo json_encode(['success' => false, 'message' => 'Erreur Tinify (shrink)']);
+            return;
+        }
+
+        $status     = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $headerSize = (int)curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        curl_close($ch);
+
+        $headersRaw = substr($response, 0, $headerSize);
+        if ($status < 200 || $status >= 300) {
+            http_response_code(502);
+            echo json_encode(['success' => false, 'message' => 'Tinify a refusé le fichier']);
+            return;
+        }
+
+        $location = null;
+        foreach (explode("\r\n", $headersRaw) as $line) {
+            if (stripos($line, 'Location:') === 0) {
+                $location = trim(substr($line, 9));
+                break;
+            }
+        }
+
+        if (!$location) {
+            http_response_code(502);
+            echo json_encode(['success' => false, 'message' => 'Réponse Tinify invalide']);
+            return;
+        }
+
+        // Étape 2 : resize + téléchargement de l'image optimisée
+        $resizeOptions = ['method' => 'fit'];
+        if ($width  > 0) $resizeOptions['width']  = $width;
+        if ($height > 0) $resizeOptions['height'] = $height;
+
+        $ch2 = curl_init($location);
+        curl_setopt_array($ch2, [
+            CURLOPT_USERPWD        => 'api:' . $apiKey,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode(['resize' => $resizeOptions]),
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 30,
+        ]);
+
+        $optimized = curl_exec($ch2);
+        $status2   = (int)curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+        curl_close($ch2);
+
+        if ($optimized === false || $status2 < 200 || $status2 >= 300) {
+            http_response_code(502);
+            echo json_encode(['success' => false, 'message' => 'Téléchargement image optimisée impossible']);
+            return;
+        }
+
+        $uploadDir = self::UPLOAD_ABS_DIR;
+        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0775, true) && !is_dir($uploadDir)) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Création dossier uploads impossible']);
+            return;
+        }
+
+        $fileName = 'img_' . bin2hex(random_bytes(8)) . '.' . $ext;
+        $absPath  = $uploadDir . '/' . $fileName;
+
+        if (file_put_contents($absPath, $optimized) === false) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Écriture image impossible']);
+            return;
+        }
+
+        echo json_encode([
+            'success'  => true,
+            'location' => self::UPLOAD_WEB_PREFIX . $fileName,
+            'local_cache' => $absPath,
+        ]);
+    }
+
+    public static function filterAjax(): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!isPost()) {
+            http_response_code(405);
+            echo json_encode(['success' => false, 'message' => 'Méthode non autorisée']);
+            return;
+        }
+
+        $isAjaxHeader = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+            && strtolower((string)$_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        $acceptJson   = isset($_SERVER['HTTP_ACCEPT'])
+            && str_contains(strtolower((string)$_SERVER['HTTP_ACCEPT']), 'application/json');
+
+        if (!$isAjaxHeader && !$acceptJson) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'message' => 'Requête AJAX attendue']);
+            return;
+        }
+
+        $idCategorieRaw = trim((string)($_POST['id_categorie'] ?? ''));
+        $idSourceRaw    = trim((string)($_POST['id_source'] ?? ''));
+        $statutRaw      = trim((string)($_POST['statut'] ?? ''));
+        $limitInsertionRaw = trim((string)($_POST['limit_insertion'] ?? ''));
+
+        $idCategorie = null;
+        if ($idCategorieRaw !== '') {
+            if (!ctype_digit($idCategorieRaw) || (int)$idCategorieRaw <= 0) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Catégorie invalide']);
+                return;
+            }
+            $idCategorie = (int)$idCategorieRaw;
+        }
+
+        $idSource = null;
+        if ($idSourceRaw !== '') {
+            if (!ctype_digit($idSourceRaw) || (int)$idSourceRaw <= 0) {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Source invalide']);
+                return;
+            }
+            $idSource = (int)$idSourceRaw;
+        }
+
+        $statut = null;
+        if ($statutRaw !== '') {
+            if ($statutRaw !== '0' && $statutRaw !== '1') {
+                http_response_code(422);
+                echo json_encode(['success' => false, 'message' => 'Statut invalide']);
+                return;
+            }
+            $statut = $statutRaw === '1';
+        }
+
+        if (!ctype_digit($limitInsertionRaw)) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'limit_insertion invalide']);
+            return;
+        }
+
+        $limitInsertion = (int)$limitInsertionRaw;
+        if ($limitInsertion <= 0 || $limitInsertion > 200) {
+            http_response_code(422);
+            echo json_encode(['success' => false, 'message' => 'limit_insertion hors limites']);
+            return;
+        }
+
+        $query = 'SELECT a.id,
+                         a.valeur,
+                         a.date_,
+                         a.statut,
+                         s.valeur AS source,
+                         c.valeur AS categorie
+                  FROM article a
+                  LEFT JOIN source s ON s.id_source = a.id_source
+                  LEFT JOIN categorie_information c ON c.id_categorie = a.id_categorie';
+
+        $where = ["a.date_ >= date_trunc('month', NOW()) AND a.date_ < (date_trunc('month', NOW()) + INTERVAL '1 month')"];
+        $params = [];
+
+        if ($idCategorie !== null) {
+            $where[] = 'a.id_categorie = :id_categorie';
+            $params[':id_categorie'] = $idCategorie;
+        }
+
+        if ($idSource !== null) {
+            $where[] = 'a.id_source = :id_source';
+            $params[':id_source'] = $idSource;
+        }
+
+        if ($statut !== null) {
+            $where[] = 'a.statut = CAST(:statut AS boolean)';
+            $params[':statut'] = $statut ? 'true' : 'false';
+        }
+
+        $query .= ' WHERE ' . implode(' AND ', $where);
+        $query .= ' ORDER BY a.id DESC, a.date_ DESC LIMIT :limit_insertion';
+
+        try {
+            $stmt = getPDO()->prepare($query);
+
+            foreach ($params as $key => $value) {
+                if ($key === ':id_categorie' || $key === ':id_source') {
+                    $stmt->bindValue($key, (int)$value, PDO::PARAM_INT);
+                    continue;
+                }
+
+                if ($key === ':statut') {
+                    $stmt->bindValue($key, (string)$value, PDO::PARAM_STR);
+                    continue;
+                }
+            }
+
+            $stmt->bindValue(':limit_insertion', $limitInsertion, PDO::PARAM_INT);
+            $stmt->execute();
+            $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            error_log('Article::filterAjax error: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Erreur lors du filtrage']);
+            return;
+        }
+
+        echo json_encode([
+            'success' => true,
+            'count' => count($articles),
+            'filters_applied' => [
+                'periode' => 'mois_courant_auto',
+                'limit_insertion' => $limitInsertion,
+                'id_categorie' => $idCategorie,
+                'id_source' => $idSource,
+                'statut' => $statut,
+            ],
+            'articles' => $articles,
+        ]);
+    }
+}

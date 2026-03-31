@@ -1,0 +1,2 @@
+psql -U news_user -d news_db
+
