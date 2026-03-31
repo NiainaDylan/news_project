@@ -433,7 +433,9 @@ $flashs = array_map(
     static fn(array $card): array => [
         'titre' => $card['titre'],
         'horaire' => $card['horaire'],
-        'url' => $card['url']
+        'url' => $card['url'],
+        'image' => $card['image'],
+        'image_alt' => $card['image_alt']
     ],
     array_slice($cards, 1, 3)
 );
@@ -535,20 +537,31 @@ require_once __DIR__ . '/../../inc/header.php';
         border-radius: 16px;
     }
 
+    .article-detail .tag {
+        display: inline-block;
+        margin-bottom: 6px;
+    }
+
     .hero-main .hero-media,
     .article-media {
-        /* height: auto; */
-        /* max-height: 360px; */
+        height: auto;
+        max-height: 360px;
         object-fit: contain;
         background: transparent;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .article-detail .hero-media {
+        display: block;
+        width: 100%;
         height: auto;
-        /* max-height: 520px; */
-        /* object-fit: contain; */
-        background: transparent;
+        max-height: 480px;
+        object-fit: cover;
+        border-radius: 10px;
         border: 1px solid var(--line);
+        margin: 12px 0 0;
     }
 
     .detail-headline {
@@ -619,6 +632,41 @@ require_once __DIR__ . '/../../inc/header.php';
         font-weight: 700;
         color: var(--brand-dark);
     }
+
+    .side-item-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .side-thumb {
+        width: 90px;
+        height: 68px;
+        object-fit: cover;
+        border-radius: 8px;
+        flex-shrink: 0;
+        border: 1px solid var(--line);
+    }
+
+    .side-item-body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .side-item-body h3 {
+        font-size: 0.9rem;
+        margin: 0 0 4px;
+        line-height: 1.35;
+        font-weight: 700;
+    }
+
+    .side-item-body .meta {
+        font-size: 0.8rem;
+        margin: 0;
+        color: var(--muted, #888);
+    }
 </style>
 
 <h1 class="search-page-title"><?php echo htmlspecialchars($searchTitle, ENT_QUOTES, 'UTF-8'); ?></h1>
@@ -632,7 +680,7 @@ require_once __DIR__ . '/../../inc/header.php';
             <span class="image-expired-badge">Image expiree (date_cache depassee)</span>
         <?php endif; ?>
         <div class="article-detail-content">
-            <?php echo $une['contenu_html']; ?>
+            <?php echo preg_replace('/^(\\\\n\s*)+/u', '', $une['contenu_html']); ?>
         </div>
     </section>
 <?php elseif ($une !== null): ?>
@@ -655,12 +703,17 @@ require_once __DIR__ . '/../../inc/header.php';
             <?php if (!empty($flashs)): ?>
                 <?php foreach ($flashs as $flash): ?>
                     <article class="side-item">
-                        <h3>
-                            <a href="<?php echo htmlspecialchars((string)$flash['url'], ENT_QUOTES, 'UTF-8'); ?>">
-                                <?php echo htmlspecialchars($flash['titre'], ENT_QUOTES, 'UTF-8'); ?>
-                            </a>
-                        </h3>
-                        <p class="meta"><?php echo htmlspecialchars($flash['horaire'], ENT_QUOTES, 'UTF-8'); ?></p>
+                        <a href="<?php echo htmlspecialchars((string)$flash['url'], ENT_QUOTES, 'UTF-8'); ?>" class="side-item-link">
+                            <img class="side-thumb" src="<?php echo htmlspecialchars($flash['image'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($flash['image_alt'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <div class="side-item-body">
+                                <h3>
+                                    <a href="<?php echo htmlspecialchars((string)$flash['url'], ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?php echo htmlspecialchars($flash['titre'], ENT_QUOTES, 'UTF-8'); ?>
+                                    </a>
+                                </h3>
+                                <p class="meta"><?php echo htmlspecialchars($flash['horaire'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            </div>
+                        </a>
                     </article>
                 <?php endforeach; ?>
             <?php else: ?>

@@ -529,8 +529,8 @@ $metaOgImageValue = isset($metaOgImage) ? trim((string)$metaOgImage) : '';
                         <span class="theme-icon theme-icon--sun" aria-hidden="true">☀</span>
                     </button>
                     <div class="login-panel">
-                        <span class="avatar">AF</span>
-                        <a class="login-btn" href="/backoffice/?action=login">Se connecter</a>
+                        <span class="avatar">BO</span>
+                        <a class="login-btn" href="/backoffice/?action=login">BackOffice</a>
                     </div>
                 </div>
             </div>
