@@ -200,8 +200,9 @@ if (!function_exists('bo_excerpt')) {
                                 </div>
                             <?php endif; ?>
 
-                            <div>
+                            <div class="article-card__actions">
                                 <a class="btn btn-secondary" href="/backoffice/?action=article_add&id=<?= (int)$article['id'] ?>">Éditer</a>
+                                <a class="btn" href="/backoffice/?action=article_detail&id=<?= (int)$article['id'] ?>">Voir details</a>
                             </div>
                         </div>
                     <?php endforeach; ?>

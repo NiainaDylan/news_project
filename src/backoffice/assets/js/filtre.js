@@ -100,6 +100,7 @@
                         : '';
                     const content = excerptText(raw);
                     const editUrl = `/backoffice/?action=article_add&id=${id}`;
+                    const detailUrl = `/backoffice/?action=article_detail&id=${id}`;
 
                     return `<div class="article-card">
                                 <div class="article-card__meta">
@@ -110,7 +111,10 @@
                                 ${imageHtml}
                                 <div class="article-card__content">${escapeHtml(content)}</div>
                                 ${source}
-                                <div><a class="btn btn-secondary" href="${editUrl}">Éditer</a></div>
+                                <div class="article-card__actions">
+                                    <a class="btn btn-secondary" href="${editUrl}">Éditer</a>
+                                    <a class="btn" href="${detailUrl}">Voir details</a>
+                                </div>
                             </div>`;
                 }).join('');
 
